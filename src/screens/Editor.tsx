@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '../auth/AuthContext'
 import { BlockView } from '../components/BlockView'
 import { FormContext, type FormApi } from '../components/FormContext'
 import { TopBar } from '../components/TopBar'
@@ -10,7 +11,8 @@ import { edadEn, pruneHidden } from '../form/visibility'
 import { navigate } from '../hooks/useHashRoute'
 import { canShareFiles, downloadPdf } from '../pdf/download'
 import { openPrintView } from '../pdf/print'
-import { storage, type Report } from '../store/storage'
+import { storageFor, type Report } from '../store/storage'
+import { useSyncContext } from '../store/SyncContext'
 
 interface Props {
   id: string
@@ -18,11 +20,14 @@ interface Props {
 }
 
 export function Editor({ id, sectionId }: Props) {
+  const { perfil, profile } = useAuth()
+  const uid = perfil!.id
+  const storage = useMemo(() => storageFor(uid), [uid])
+  const sync = useSyncContext()
   const [report, setReport] = useState<Report | undefined>(() => storage.getReport(id))
   const [saved, setSaved] = useState(true)
   const [busy, setBusy] = useState(false)
   const timer = useRef<number | undefined>(undefined)
-  const profile = useMemo(() => storage.loadProfile(), [])
 
   const index = Math.max(
     0,
@@ -30,16 +35,30 @@ export function Editor({ id, sectionId }: Props) {
   )
   const section = sections[index]
 
-  // Autoguardado con retardo corto
-  const persist = useCallback((r: Report) => {
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => {
-      storage.saveReport(r)
-      setSaved(true)
-    }, 400)
-  }, [])
+  // Autoguardado local con retardo corto; la sincronización se programa después
+  const persist = useCallback(
+    (r: Report) => {
+      window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => {
+        storage.saveReport(r)
+        setSaved(true)
+        sync.schedule()
+      }, 400)
+    },
+    [storage, sync],
+  )
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  // Si la sincronización trae el código del informe, reflejarlo sin perder cambios locales
+  useEffect(
+    () =>
+      sync.subscribe(() => {
+        const fresh = storage.getReport(id)
+        if (fresh) setReport((prev) => (prev && prev.codigo !== fresh.codigo ? { ...prev, codigo: fresh.codigo } : prev))
+      }),
+    [sync, storage, id],
+  )
 
   const api: FormApi | null = useMemo(() => {
     if (!report) return null
@@ -69,8 +88,11 @@ export function Editor({ id, sectionId }: Props) {
   const flush = () => {
     if (!report) return
     window.clearTimeout(timer.current)
-    storage.saveReport(report)
-    setSaved(true)
+    if (!saved) {
+      storage.saveReport(report)
+      setSaved(true)
+      sync.schedule(500)
+    }
   }
 
   const go = (i: number) => {
@@ -79,11 +101,13 @@ export function Editor({ id, sectionId }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const pdfData = (): FormData => ({ ...report!.data, _codigo: report!.codigo ?? '' })
+
   /** Vista fiel al formato (HTML) para "Guardar como PDF" con el motor del navegador. */
   const printPdf = () => {
     if (!report) return
     flush()
-    if (!openPrintView(report.data, storage.loadProfile())) {
+    if (!openPrintView(pdfData(), profile)) {
       toast('El navegador bloqueó la ventana. Se descargará el PDF directo.', 'error')
       void exportPdf('download')
     }
@@ -94,7 +118,7 @@ export function Editor({ id, sectionId }: Props) {
     flush()
     setBusy(true)
     try {
-      const used = await downloadPdf(report.data, storage.loadProfile(), mode)
+      const used = await downloadPdf(pdfData(), profile, mode)
       toast(used === 'share' ? 'PDF compartido' : used === 'open' ? 'PDF abierto en una pestaña nueva' : 'PDF descargado')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
@@ -110,7 +134,8 @@ export function Editor({ id, sectionId }: Props) {
         <TopBar title="Informe no encontrado" onBack={() => navigate({ name: 'home' })} />
         <main className="page">
           <div className="card empty">
-            <h2>El informe no existe en este dispositivo</h2>
+            <h2>El informe no está en este dispositivo</h2>
+            <p>Si lo creó en otro equipo, sincronice desde el inicio con conexión a internet.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate({ name: 'home' })}>
               Volver al inicio
             </button>
@@ -128,7 +153,7 @@ export function Editor({ id, sectionId }: Props) {
     <FormContext.Provider value={api}>
       <TopBar
         title={nna || 'Nuevo informe'}
-        subtitle={`Sección ${index + 1} de ${sections.length} · ${section.short}`}
+        subtitle={`${report.codigo ?? 'Código pendiente'} · Sección ${index + 1} de ${sections.length} · ${section.short}`}
         onBack={() => {
           flush()
           navigate({ name: 'home' })
@@ -165,7 +190,10 @@ export function Editor({ id, sectionId }: Props) {
         <section className="card section-card" key={section.id}>
           <div className="section-card__header">
             <h2>{section.title}</h2>
-            <small>Los cambios se guardan automáticamente en este dispositivo.</small>
+            <small>
+              {report.codigo ? `Informe ${report.codigo}. ` : 'El código se asigna al sincronizar con el servidor. '}
+              Los cambios se guardan automáticamente.
+            </small>
           </div>
           <div className="section-card__body">
             {section.blocks.map((b, i) => (
@@ -188,7 +216,14 @@ export function Editor({ id, sectionId }: Props) {
                   </div>
                 )}
                 <div className="actions-bar" style={{ justifyContent: 'flex-start' }}>
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => { flush(); navigate({ name: 'profile' }) }}>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => {
+                      flush()
+                      navigate({ name: 'profile' })
+                    }}
+                  >
                     {firmaOk ? 'Cambiar firma en el perfil' : 'Ir al perfil'}
                   </button>
                 </div>

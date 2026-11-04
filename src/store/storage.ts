@@ -1,5 +1,6 @@
 import type { FormData } from '../form/types'
 
+/** Datos del profesional en el formato que usan los generadores de PDF. */
 export interface Profile {
   nombre: string
   tarjeta: string
@@ -10,11 +11,21 @@ export interface Profile {
   firma?: string
 }
 
+/** Informe guardado en el dispositivo (copia local sincronizable con Supabase). */
 export interface Report {
   id: string
+  /** Código único asignado por el servidor (ITS-AAAA-NNNN); null hasta la primera sincronización */
+  codigo: string | null
+  autorId: string
   createdAt: string
   updatedAt: string
   data: FormData
+  /** Hay cambios locales pendientes de subir */
+  dirty: boolean
+  /** Marcado para eliminar en el servidor en la próxima sincronización */
+  deletedAt?: string
+  /** Última vez que se confirmó en el servidor */
+  syncedAt?: string
 }
 
 export interface KeyValueStore {
@@ -22,9 +33,6 @@ export interface KeyValueStore {
   setItem(key: string, value: string): void
   removeItem(key: string): void
 }
-
-const PROFILE_KEY = 'its.profile.v1'
-const REPORTS_KEY = 'its.reports.v1'
 
 export const DEFAULT_PROFILE: Profile = {
   nombre: '',
@@ -34,7 +42,7 @@ export const DEFAULT_PROFILE: Profile = {
   dirigidoA: '',
 }
 
-function memoryStore(): KeyValueStore {
+export function memoryStore(): KeyValueStore {
   const m = new Map<string, string>()
   return {
     getItem: (k) => m.get(k) ?? null,
@@ -75,33 +83,57 @@ export function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function createStorage(store: KeyValueStore = defaultStore()) {
-  const loadProfile = (): Profile => ({ ...DEFAULT_PROFILE, ...readJson<Partial<Profile>>(store, PROFILE_KEY, {}) })
-  const saveProfile = (p: Profile) => store.setItem(PROFILE_KEY, JSON.stringify(p))
+/**
+ * Almacén local de informes de un usuario. Cada usuario tiene su propia lista en el dispositivo,
+ * de modo que varios profesionales pueden usar el mismo equipo sin mezclar informes.
+ */
+export function createStorage(uid: string, store: KeyValueStore = defaultStore()) {
+  const KEY = `its.reports.v2.${uid}`
 
+  const readAll = (): Report[] => readJson<Report[]>(store, KEY, [])
+  const writeAll = (reports: Report[]) => store.setItem(KEY, JSON.stringify(reports))
+
+  /** Informes visibles (no marcados para eliminar), los más recientes primero. */
   const listReports = (): Report[] =>
-    readJson<Report[]>(store, REPORTS_KEY, []).sort((a, b) => (a.updatedAt === b.updatedAt ? 0 : a.updatedAt < b.updatedAt ? 1 : -1))
-  const writeReports = (reports: Report[]) => store.setItem(REPORTS_KEY, JSON.stringify(reports))
+    readAll()
+      .filter((r) => !r.deletedAt)
+      .sort((a, b) => (a.updatedAt === b.updatedAt ? 0 : a.updatedAt < b.updatedAt ? 1 : -1))
 
-  const getReport = (id: string): Report | undefined => listReports().find((r) => r.id === id)
+  /** Todos los registros locales, incluidos los pendientes de eliminar (para sincronizar). */
+  const listAllRaw = readAll
 
+  const getReport = (id: string): Report | undefined => readAll().find((r) => r.id === id && !r.deletedAt)
+
+  /** Guarda cambios hechos por el usuario (marca el informe como pendiente de subir). */
   const saveReport = (report: Report): Report => {
-    const updated = { ...report, updatedAt: new Date().toISOString() }
-    const others = listReports().filter((r) => r.id !== report.id)
-    writeReports([updated, ...others])
+    const updated: Report = { ...report, updatedAt: new Date().toISOString(), dirty: true }
+    writeAll([updated, ...readAll().filter((r) => r.id !== report.id)])
     return updated
   }
 
-  const deleteReport = (id: string) => writeReports(listReports().filter((r) => r.id !== id))
+  /** Escribe un informe tal cual (lo usa la sincronización; no cambia updatedAt ni dirty). */
+  const putRaw = (report: Report) => writeAll([report, ...readAll().filter((r) => r.id !== report.id)])
 
-  /** Crea un informe nuevo con los datos generales tomados del perfil. */
-  const createReport = (profile: Profile = loadProfile()): Report => {
+  const removeRaw = (id: string) => writeAll(readAll().filter((r) => r.id !== id))
+
+  /** Marca para eliminar; se borra del servidor en la siguiente sincronización. */
+  const deleteReport = (id: string) => {
+    const r = readAll().find((x) => x.id === id)
+    if (!r) return
+    if (!r.syncedAt) removeRaw(id)
+    else putRaw({ ...r, deletedAt: new Date().toISOString(), dirty: true })
+  }
+
+  const createReport = (profile: Profile): Report => {
     const now = new Date().toISOString()
     const hoy = todayIso()
     const report: Report = {
       id: newId(),
+      codigo: null,
+      autorId: uid,
       createdAt: now,
       updatedAt: now,
+      dirty: true,
       data: {
         fecha_elaboracion: hoy,
         elaborado_por: profile.nombre,
@@ -117,8 +149,7 @@ export function createStorage(store: KeyValueStore = defaultStore()) {
         prof_fecha_elaboracion: hoy,
       },
     }
-    const others = listReports()
-    writeReports([report, ...others])
+    writeAll([report, ...readAll()])
     return report
   }
 
@@ -126,14 +157,25 @@ export function createStorage(store: KeyValueStore = defaultStore()) {
     const src = getReport(id)
     if (!src) return undefined
     const now = new Date().toISOString()
-    const copy: Report = { id: newId(), createdAt: now, updatedAt: now, data: { ...src.data } }
-    writeReports([copy, ...listReports()])
+    const copy: Report = { id: newId(), codigo: null, autorId: uid, createdAt: now, updatedAt: now, dirty: true, data: { ...src.data } }
+    writeAll([copy, ...readAll()])
     return copy
   }
 
-  return { loadProfile, saveProfile, listReports, getReport, saveReport, deleteReport, createReport, duplicateReport }
+  const pendingCount = (): number => readAll().filter((r) => r.dirty).length
+
+  return { listReports, listAllRaw, getReport, saveReport, putRaw, removeRaw, deleteReport, createReport, duplicateReport, pendingCount }
 }
 
 export type Storage = ReturnType<typeof createStorage>
 
-export const storage: Storage = createStorage()
+const cache = new Map<string, Storage>()
+/** Almacén del usuario indicado (se reutiliza la instancia). */
+export function storageFor(uid: string): Storage {
+  let s = cache.get(uid)
+  if (!s) {
+    s = createStorage(uid)
+    cache.set(uid, s)
+  }
+  return s
+}

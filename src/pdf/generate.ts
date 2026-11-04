@@ -43,7 +43,15 @@ export async function generatePdf({ data, profile, assets }: GenerateOptions): P
   doc.advance(LINE_VALUE)
   const subW = doc.fonts.bold.widthOfTextAtSize(FORM_SUBTITLE, 8)
   doc.text(FORM_SUBTITLE, doc.left + (doc.width - subW) / 2, doc.y, 8, doc.fonts.bold, INK, LINE_VALUE)
-  doc.advance(LINE_VALUE + 3)
+  doc.advance(LINE_VALUE)
+  const codigo = asString(data._codigo)
+  if (codigo) {
+    const txt = `Informe N.° ${codigo}`
+    const cw = doc.fonts.regular.widthOfTextAtSize(txt, 8)
+    doc.text(txt, doc.left + (doc.width - cw) / 2, doc.y, 8, doc.fonts.regular, INK, LINE_VALUE)
+    doc.advance(LINE_VALUE)
+  }
+  doc.advance(3)
 
   for (const section of sections) {
     // La sección del profesional (datos + firma) se mantiene completa en una misma página.

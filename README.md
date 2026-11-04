@@ -53,11 +53,43 @@ npm test
 npm run build
 ```
 
+## Base de datos y usuarios (Supabase)
+
+La app usa Supabase para autenticación, perfiles y almacenamiento de los informes. Los informes se
+guardan primero en el dispositivo (funciona sin conexión) y se sincronizan con el servidor.
+
+- `supabase/migrations/20261104_01_esquema_inicial.sql`: tablas `perfiles`, `informes`,
+  `consecutivos`, código único `ITS-AAAA-NNNN` (trigger), políticas de seguridad (RLS) y la función
+  `reasignar_informe`.
+- `supabase/functions/admin-users`: función Edge que usa el administrador para crear usuarios,
+  restablecer contraseñas y activar o desactivar cuentas.
+
+### Puesta en marcha
+
+1. Ejecutar la migración en el SQL Editor del proyecto (o `supabase db push`).
+2. Desplegar la función: `supabase functions deploy admin-users` (usa las variables que Supabase
+   inyecta automáticamente: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+3. Crear el primer administrador en **Authentication → Users → Add user** (correo, contraseña y
+   "Auto confirm"). El perfil se crea solo; luego, en el SQL Editor:
+   ```sql
+   update public.perfiles set rol = 'admin' where correo = 'correo@del.admin';
+   ```
+4. Copiar `.env.example` a `.env` con la URL del proyecto y la clave pública (anon / publishable),
+   y configurar las mismas variables en Vercel.
+
+### Roles
+
+- **Administrador:** crea profesionales (con contraseña temporal que deben cambiar al ingresar),
+  los desactiva o reactiva, restablece contraseñas, ve todos los informes y puede reasignarlos.
+  También puede elaborar sus propios informes.
+- **Profesional:** ve y edita únicamente sus informes.
+
 ## Despliegue en Vercel
 
 1. Importar este repositorio en Vercel.
 2. Framework: **Vite** (se detecta automáticamente; `vercel.json` ya define build y salida `dist`).
-3. Desplegar. No se requieren variables de entorno.
+3. Variables de entorno: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+4. Desplegar.
 
 Tras el despliegue, abrir la URL en el celular o tablet y usar **"Agregar a pantalla de inicio"**
 para instalarla como aplicación.

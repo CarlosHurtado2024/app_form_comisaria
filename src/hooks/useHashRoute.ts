@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 
-export type Route = { name: 'home' } | { name: 'profile' } | { name: 'editor'; id: string; section?: string }
+export type Route = { name: 'home' } | { name: 'profile' } | { name: 'admin'; tab?: string } | { name: 'editor'; id: string; section?: string }
 
 export function parseHash(hash: string): Route {
   const path = hash.replace(/^#/, '').replace(/^\//, '')
   const [a, b, c] = path.split('/')
   if (a === 'perfil') return { name: 'profile' }
+  if (a === 'admin') return { name: 'admin', tab: b || undefined }
   if (a === 'informe' && b) return { name: 'editor', id: b, section: c || undefined }
   return { name: 'home' }
 }
@@ -16,6 +17,8 @@ export function toHash(route: Route): string {
       return '#/'
     case 'profile':
       return '#/perfil'
+    case 'admin':
+      return `#/admin${route.tab ? `/${route.tab}` : ''}`
     case 'editor':
       return `#/informe/${route.id}${route.section ? `/${route.section}` : ''}`
   }

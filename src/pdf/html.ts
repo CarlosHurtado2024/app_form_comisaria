@@ -125,7 +125,7 @@ export function buildPrintHtml(data: FormData, profile: Profile, assets: HtmlAss
   const body = `
 <table>
 ${colgroup([25, 25, 25, 25])}
-<tr><td colspan="4" class="c b" style="font-size:9pt">FORMATO INFORME DE VALORACIÓN SOCIOFAMILIAR DE VERIFICACIÓN DE DERECHOS<br>RESTABLECIMIENTO DE DERECHOS</td></tr>
+<tr><td colspan="4" class="c b" style="font-size:9pt">FORMATO INFORME DE VALORACIÓN SOCIOFAMILIAR DE VERIFICACIÓN DE DERECHOS<br>RESTABLECIMIENTO DE DERECHOS${v('_codigo') ? `<br><span style="font-size:8pt;font-weight:normal">Informe N.° <b>${val('_codigo')}</b></span>` : ''}</td></tr>
 <tr><td colspan="4" class="sec">1. DATOS GENERALES</td></tr>
 <tr><td class="b">Fecha de elaboración:</td><td colspan="3" style="height:18px">${date('fecha_elaboracion')}&nbsp;</td></tr>
 <tr><td class="b">Elaborado por:</td><td colspan="3" style="height:18px">${val('elaborado_por')}&nbsp;</td></tr>

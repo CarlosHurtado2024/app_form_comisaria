@@ -1,42 +1,52 @@
 import { describe, expect, it } from 'vitest'
-import { createStorage, DEFAULT_PROFILE, type KeyValueStore } from './storage'
+import { createStorage, DEFAULT_PROFILE, memoryStore } from './storage'
 
-function memory(): KeyValueStore {
-  const m = new Map<string, string>()
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v), removeItem: (k) => void m.delete(k) }
-}
+const UID = 'usuario-1'
 
 describe('storage', () => {
-  it('guarda y recupera el perfil con valores por defecto', () => {
-    const s = createStorage(memory())
-    expect(s.loadProfile()).toEqual(DEFAULT_PROFILE)
-    s.saveProfile({ ...DEFAULT_PROFILE, nombre: 'Ana', tarjeta: '99' })
-    expect(s.loadProfile().nombre).toBe('Ana')
-    expect(s.loadProfile().seccion).toBe(DEFAULT_PROFILE.seccion)
-  })
-
-  it('crea informes prellenados con el perfil y los lista por actualización', () => {
-    const s = createStorage(memory())
+  it('crea informes prellenados con el perfil, pendientes de subir y sin código', () => {
+    const s = createStorage(UID, memoryStore())
     const profile = { ...DEFAULT_PROFILE, nombre: 'Ana', tarjeta: '99', dirigidoA: 'Comisaria' }
     const a = s.createReport(profile)
     expect(a.data.elaborado_por).toBe('Ana')
     expect(a.data.prof_tarjeta).toBe('99')
     expect(a.data.dirigido_a).toBe('Comisaria')
+    expect(a.data.nac_pais).toBe('Colombia')
+    expect(a.codigo).toBeNull()
+    expect(a.dirty).toBe(true)
+    expect(a.autorId).toBe(UID)
     const b = s.createReport(profile)
     s.saveReport({ ...a, data: { ...a.data, nombres: 'Juan' } })
-    const list = s.listReports()
-    expect(list.map((r) => r.id)).toEqual([a.id, b.id])
+    expect(s.listReports().map((r) => r.id)).toEqual([a.id, b.id])
     expect(s.getReport(a.id)?.data.nombres).toBe('Juan')
+    expect(s.pendingCount()).toBe(2)
   })
 
-  it('duplica y elimina informes', () => {
-    const s = createStorage(memory())
-    const a = s.createReport()
+  it('separa los informes por usuario', () => {
+    const store = memoryStore()
+    const s1 = createStorage('u1', store)
+    const s2 = createStorage('u2', store)
+    s1.createReport(DEFAULT_PROFILE)
+    expect(s2.listReports()).toHaveLength(0)
+  })
+
+  it('duplica y elimina (los no sincronizados se borran de inmediato; los sincronizados quedan marcados)', () => {
+    const s = createStorage(UID, memoryStore())
+    const a = s.createReport(DEFAULT_PROFILE)
     s.saveReport({ ...a, data: { ...a.data, nombres: 'Copia' } })
     const copy = s.duplicateReport(a.id)
     expect(copy?.data.nombres).toBe('Copia')
     expect(copy?.id).not.toBe(a.id)
     s.deleteReport(a.id)
     expect(s.listReports().map((r) => r.id)).toEqual([copy?.id])
+    expect(s.listAllRaw().some((r) => r.id === a.id)).toBe(false)
+
+    // Sincronizado: queda marcado para eliminar en el servidor
+    s.putRaw({ ...copy!, dirty: false, syncedAt: new Date().toISOString(), codigo: 'ITS-2026-0001' })
+    s.deleteReport(copy!.id)
+    expect(s.listReports()).toHaveLength(0)
+    const raw = s.listAllRaw().find((r) => r.id === copy!.id)
+    expect(raw?.deletedAt).toBeTruthy()
+    expect(raw?.dirty).toBe(true)
   })
 })

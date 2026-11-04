@@ -28,3 +28,7 @@ dist-ssr
 
 # PDF de prueba generados localmente
 pruebas_pdf/
+
+# Variables de entorno locales
+.env
+.env.local
