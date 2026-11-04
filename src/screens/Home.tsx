@@ -5,6 +5,7 @@ import { progressPercent } from '../form/progress'
 import { asString } from '../form/types'
 import { navigate } from '../hooks/useHashRoute'
 import { downloadPdf } from '../pdf/download'
+import { openPrintView } from '../pdf/print'
 import { storage, type Report } from '../store/storage'
 
 function formatDateTime(iso: string): string {
@@ -43,6 +44,7 @@ export function Home() {
   }
 
   const pdf = async (r: Report) => {
+    if (openPrintView(r.data, storage.loadProfile())) return
     setBusy(r.id)
     try {
       await downloadPdf(r.data, storage.loadProfile())

@@ -9,10 +9,10 @@ export const CONTENT_W = PAGE_W - 2 * MARGIN
 
 export const INK = rgb(0.1, 0.1, 0.1)
 export const MUTED = rgb(0.4, 0.4, 0.4)
-export const BORDER = rgb(0.45, 0.45, 0.45)
+export const BORDER = rgb(0.15, 0.15, 0.15)
 export const BAR_FILL = rgb(0.86, 0.86, 0.86)
 export const BAR_SOFT = rgb(0.93, 0.93, 0.93)
-export const GREEN = rgb(0.12, 0.47, 0.25)
+export const GREEN = rgb(0.18, 0.55, 0.12)
 export const WHITE = rgb(1, 1, 1)
 
 export const SIZE_LABEL = 6.8
@@ -211,11 +211,7 @@ export class FlowDocument {
   /** Casilla de verificación con marca vectorial. */
   checkbox(x: number, top: number, checked: boolean, size = CHECK): void {
     const y = top - LINE_VALUE * 0.5 - size / 2
-    this.page.drawRectangle({ x, y, width: size, height: size, borderColor: INK, borderWidth: 0.7, color: WHITE })
-    if (checked) {
-      this.page.drawLine({ start: { x: x + 1.3, y: y + size * 0.5 }, end: { x: x + size * 0.42, y: y + 1.2 }, thickness: 1.1, color: INK })
-      this.page.drawLine({ start: { x: x + size * 0.42, y: y + 1.2 }, end: { x: x + size - 1, y: y + size - 1 }, thickness: 1.1, color: INK })
-    }
+    this.page.drawRectangle({ x, y, width: size, height: size, borderColor: INK, borderWidth: 0.7, color: checked ? INK : WHITE })
   }
 
   image(img: PDFImage, x: number, top: number, maxW: number, maxH: number): { w: number; h: number } {

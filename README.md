@@ -12,9 +12,12 @@ incluyendo los datos del profesional que lo elabora y su firma.
 - **Diligenciamiento por secciones** (las 9 del formato) con autoguardado en el dispositivo.
 - **Perfil del profesional** reutilizable: nombre, tarjeta profesional, sección, cargo y **firma**
   (dibujada en pantalla o cargada como imagen). Se prellena en cada informe nuevo.
-- **Generación del PDF** en el navegador (sin servidor) reproduciendo encabezado, barras de sección,
-  casillas, tablas y campo de firma del formato original. Permite descargar, compartir (móvil) o
-  previsualizar.
+- **Generación del PDF** en el navegador, sin servidor, de dos formas:
+  - **Generar PDF** (recomendado): abre el informe en HTML con el formato institucional completo
+    (misma plantilla que el generador con Chrome headless) y usa el motor de impresión del navegador
+    ("Guardar como PDF"). Resultado vectorial, con encabezado y "Página X de N" en cada hoja.
+  - **Descarga directa**: construye el PDF con `pdf-lib` sin pasar por el cuadro de impresión.
+    Útil para compartir desde el celular (WhatsApp, correo).
 - **Varios informes** guardados, con duplicado y eliminación.
 - Sin backend: toda la información queda únicamente en el dispositivo (`localStorage`).
 
@@ -28,6 +31,8 @@ src/
   pdf/blocks.ts       Medición y dibujo de cada tipo de bloque
   pdf/generate.ts     Ensamblado del documento y bloque de firma
   pdf/download.ts     Descarga / compartir en el navegador
+  pdf/html.ts         Plantilla HTML del formato (paginación y encabezado por página)
+  pdf/print.ts        Abre la plantilla HTML lista para "Guardar como PDF"
   store/storage.ts    Persistencia de perfil e informes
   components/         Renderizado de bloques, firma, barra superior, avisos
   screens/            Inicio, Perfil, Editor

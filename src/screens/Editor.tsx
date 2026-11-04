@@ -8,6 +8,7 @@ import { sections } from '../form/schema'
 import { asString, type FieldValue, type FormData } from '../form/types'
 import { navigate } from '../hooks/useHashRoute'
 import { canShareFiles, downloadPdf } from '../pdf/download'
+import { openPrintView } from '../pdf/print'
 import { storage, type Report } from '../store/storage'
 
 interface Props {
@@ -68,6 +69,16 @@ export function Editor({ id, sectionId }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  /** Vista fiel al formato (HTML) para "Guardar como PDF" con el motor del navegador. */
+  const printPdf = () => {
+    if (!report) return
+    flush()
+    if (!openPrintView(report.data, storage.loadProfile())) {
+      toast('El navegador bloqueó la ventana. Se descargará el PDF directo.', 'error')
+      void exportPdf('download')
+    }
+  }
+
   const exportPdf = async (mode: 'download' | 'share' | 'open') => {
     if (!report) return
     flush()
@@ -117,8 +128,8 @@ export function Editor({ id, sectionId }: Props) {
             <span className="status" aria-live="polite">
               {saved ? 'Guardado' : 'Guardando…'}
             </span>
-            <button type="button" className="btn btn--gold" onClick={() => exportPdf('download')} disabled={busy}>
-              {busy ? 'Generando…' : 'Generar PDF'}
+            <button type="button" className="btn btn--gold" onClick={printPdf} disabled={busy}>
+              Generar PDF
             </button>
           </>
         }
@@ -172,17 +183,20 @@ export function Editor({ id, sectionId }: Props) {
                   </button>
                 </div>
                 <div className="actions-bar" style={{ justifyContent: 'flex-start', paddingTop: 8, borderTop: '1px dashed var(--line)' }}>
-                  <button type="button" className="btn btn--primary" onClick={() => exportPdf('download')} disabled={busy}>
-                    Descargar PDF
+                  <button type="button" className="btn btn--primary" onClick={printPdf} disabled={busy}>
+                    Generar PDF
+                  </button>
+                  <button type="button" className="btn btn--ghost" onClick={() => exportPdf('download')} disabled={busy}>
+                    {busy ? 'Generando…' : 'Descarga directa'}
                   </button>
                   {canShareFiles() && (
                     <button type="button" className="btn btn--ghost" onClick={() => exportPdf('share')} disabled={busy}>
                       Compartir
                     </button>
                   )}
-                  <button type="button" className="btn btn--ghost" onClick={() => exportPdf('open')} disabled={busy}>
-                    Vista previa
-                  </button>
+                </div>
+                <div className="field__hint">
+                  "Generar PDF" abre el informe con el formato institucional completo; en el cuadro de impresión elija "Guardar como PDF". "Descarga directa" genera el archivo sin pasar por ese cuadro.
                 </div>
               </div>
             )}
@@ -196,7 +210,7 @@ export function Editor({ id, sectionId }: Props) {
                 Siguiente →
               </button>
             ) : (
-              <button type="button" className="btn btn--gold" onClick={() => exportPdf('download')} disabled={busy}>
+              <button type="button" className="btn btn--gold" onClick={printPdf} disabled={busy}>
                 Generar PDF
               </button>
             )}
