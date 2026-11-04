@@ -467,9 +467,9 @@ h3 {
   font-size: 0.85rem;
   color: var(--muted);
   padding: 10px 12px;
-  background: var(--bg);
+  background: var(--gold-100);
+  border: 1px solid #ead9b0;
   border-radius: var(--radius-sm);
-  border-left: 3px solid var(--gold);
 }
 .field {
   display: flex;
