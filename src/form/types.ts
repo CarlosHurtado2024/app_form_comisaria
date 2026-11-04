@@ -9,21 +9,53 @@ export interface OtherField {
   label: string
 }
 
-export interface TextBlock {
+/**
+ * Condición declarativa sobre otro campo. Se usa para mostrar u ocultar bloques
+ * (`when`) o para bloquear la edición (`readOnlyWhen`).
+ */
+export interface Condition {
+  key: string
+  equals?: string
+  notEquals?: string
+  /** Para campos de casillas: la lista contiene esta opción */
+  includes?: string
+  /** El campo tiene algún valor */
+  truthy?: boolean
+}
+
+export interface Conditional {
+  /** El bloque solo se muestra cuando se cumple la condición */
+  when?: Condition
+}
+
+export interface TextBlock extends Conditional {
   type: 'text'
   key: string
   label: string
   placeholder?: string
   inputType?: 'text' | 'number' | 'tel' | 'email'
+  hint?: string
+  /** El campo se muestra como solo lectura cuando se cumple la condición (valor calculado) */
+  readOnlyWhen?: Condition
 }
 
-export interface DateBlock {
+export interface SelectBlock extends Conditional {
+  type: 'select'
+  key: string
+  label: string
+  options?: string[]
+  /** Lista dinámica: países, departamentos (si el país es Colombia) o municipios del departamento elegido */
+  optionsFrom?: 'paises' | 'departamentos' | 'municipios'
+  placeholder?: string
+}
+
+export interface DateBlock extends Conditional {
   type: 'date'
   key: string
   label: string
 }
 
-export interface TextAreaBlock {
+export interface TextAreaBlock extends Conditional {
   type: 'textarea'
   key: string
   label: string
@@ -34,7 +66,7 @@ export interface TextAreaBlock {
   bullets?: boolean
 }
 
-export interface RadioBlock {
+export interface RadioBlock extends Conditional {
   type: 'radio'
   key: string
   label: string
@@ -44,7 +76,7 @@ export interface RadioBlock {
   columns?: number
 }
 
-export interface ChecksBlock {
+export interface ChecksBlock extends Conditional {
   type: 'checks'
   key: string
   label: string
@@ -53,7 +85,7 @@ export interface ChecksBlock {
   columns?: number
 }
 
-export interface YesNoBlock {
+export interface YesNoBlock extends Conditional {
   type: 'yesno'
   key: string
   label: string
@@ -72,7 +104,7 @@ export interface TableColumn {
   width?: number
 }
 
-export interface TableBlock {
+export interface TableBlock extends Conditional {
   type: 'table'
   key: string
   label?: string
@@ -82,31 +114,32 @@ export interface TableBlock {
   rowName?: string
 }
 
-export interface RowBlock {
+export interface RowBlock extends Conditional {
   type: 'row'
   items: Block[]
   /** Pesos relativos de ancho por ítem; por defecto iguales */
   widths?: number[]
 }
 
-export interface GroupBlock {
+export interface GroupBlock extends Conditional {
   type: 'group'
   label: string
   items: Block[]
 }
 
-export interface HeadingBlock {
+export interface HeadingBlock extends Conditional {
   type: 'heading'
   text: string
 }
 
-export interface NoteBlock {
+export interface NoteBlock extends Conditional {
   type: 'note'
   text: string
 }
 
 export type Block =
   | TextBlock
+  | SelectBlock
   | DateBlock
   | TextAreaBlock
   | RadioBlock

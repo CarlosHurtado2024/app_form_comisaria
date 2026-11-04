@@ -573,7 +573,7 @@ function paginar() {
     var cells = row.cells;
     if (!cells.length) return false;
     for (var k = 0; k < cells.length; k++) {
-      if (!/(^|\s)(b|sec)(\s|$)/.test(cells[k].className)) return false;
+      if (!/(^|\\s)(b|sec)(\\s|$)/.test(cells[k].className)) return false;
     }
     return true;
   }

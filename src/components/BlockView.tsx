@@ -6,10 +6,13 @@ import {
   type Block,
   type ChecksBlock,
   type RadioBlock,
+  type SelectBlock,
   type TableBlock,
   type TableRow,
+  type TextBlock,
   type YesNoBlock,
 } from '../form/types'
+import { isVisible, matches, selectOptions } from '../form/visibility'
 import { useForm } from './FormContext'
 
 const CheckIcon = () => (
@@ -32,12 +35,13 @@ function Label({ id, text, hint }: { id: string; text: string; hint?: string }) 
   )
 }
 
-function TextField({ block }: { block: Extract<Block, { type: 'text' }> }) {
+function TextField({ block }: { block: TextBlock }) {
   const { data, set } = useForm()
   const id = useId()
+  const readOnly = !!block.readOnlyWhen && matches(block.readOnlyWhen, data)
   return (
     <div className="field">
-      <Label id={id} text={block.label} />
+      <Label id={id} text={block.label} hint={block.hint} />
       <input
         id={id}
         className="input"
@@ -46,8 +50,38 @@ function TextField({ block }: { block: Extract<Block, { type: 'text' }> }) {
         placeholder={block.placeholder}
         value={asString(data[block.key])}
         onChange={(e) => set(block.key, e.target.value)}
+        readOnly={readOnly}
         aria-label={block.label || undefined}
       />
+    </div>
+  )
+}
+
+function SelectField({ block }: { block: SelectBlock }) {
+  const { data, set } = useForm()
+  const id = useId()
+  const value = asString(data[block.key])
+  const options = selectOptions(block, data)
+  if (!options) {
+    return (
+      <div className="field">
+        <Label id={id} text={block.label} />
+        <input id={id} className="input" type="text" value={value} placeholder={block.placeholder} onChange={(e) => set(block.key, e.target.value)} />
+      </div>
+    )
+  }
+  const list = value && !options.includes(value) ? [value, ...options] : options
+  return (
+    <div className="field">
+      <Label id={id} text={block.label} />
+      <select id={id} className="input" value={value} onChange={(e) => set(block.key, e.target.value)}>
+        <option value="">{block.placeholder ?? 'Seleccione…'}</option>
+        {list.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }
@@ -162,20 +196,31 @@ function YesNoField({ block }: { block: YesNoBlock }) {
   return (
     <div className="field">
       <span className="field__label">{block.label}</span>
-      <div className="seg" role="radiogroup" aria-label={block.label}>
-        {(['No', 'Sí'] as const).map((o) => (
-          <button type="button" key={o} role="radio" aria-checked={value === o} className={value === o ? 'on' : ''} onClick={() => set(block.key, value === o ? '' : o)}>
-            {o}
-          </button>
-        ))}
+      <div className="yn" role="radiogroup" aria-label={block.label}>
+        {(['Sí', 'No'] as const).map((o) => {
+          const on = value === o
+          return (
+            <button
+              type="button"
+              key={o}
+              role="radio"
+              aria-checked={on}
+              className={on ? `on ${o === 'Sí' ? 'on--si' : 'on--no'}` : ''}
+              onClick={() => set(block.key, on ? '' : o)}
+            >
+              <span className="yn__ico" aria-hidden="true">
+                {o === 'Sí' ? '✓' : '✕'}
+              </span>
+              {o}
+            </button>
+          )
+        })}
       </div>
       {textLabel && (
-        <>
-          <label className="field__hint" htmlFor={id}>
-            {textLabel}
-          </label>
+        <div className={`yn-text${value === 'No' ? ' yn-text--no' : ''}`}>
+          <label htmlFor={id}>{textLabel}</label>
           <textarea id={id} className="textarea" rows={3} value={asString(data[textKey])} onChange={(e) => set(textKey, e.target.value)} />
-        </>
+        </div>
       )}
     </div>
   )
@@ -191,17 +236,19 @@ function TableField({ block }: { block: TableBlock }) {
   }
   const add = () => set(block.key, [...shown, {}])
   const remove = (i: number) => set(block.key, shown.filter((_, idx) => idx !== i))
-  const weights = block.columns.map((c) => `${c.width ?? 1}fr`).join(' ')
+  const weights = block.columns.map((c) => `minmax(0, ${c.width ?? 1}fr)`).join(' ')
   const rowName = block.rowName ?? 'Fila'
   return (
     <div className="field">
       {block.label && <span className="field__label">{block.label}</span>}
-      <div className="tbl tbl--wide" style={{ '--tbl-cols': `70px ${weights} 44px` } as React.CSSProperties}>
+      <div className="tbl tbl--wide" style={{ '--tbl-cols': weights } as React.CSSProperties}>
         <div className="tbl__head" aria-hidden="true">
           <span>#</span>
-          {block.columns.map((c) => (
-            <span key={c.key}>{c.label}</span>
-          ))}
+          <div className="tbl__headcells">
+            {block.columns.map((c) => (
+              <span key={c.key}>{c.label}</span>
+            ))}
+          </div>
           <span />
         </div>
         {shown.map((row, i) => (
@@ -209,33 +256,49 @@ function TableField({ block }: { block: TableBlock }) {
             <span className="tbl__rowname">
               {rowName} {i + 1}
             </span>
-            {block.columns.map((c) => (
-              <div className="tbl__cell" key={c.key}>
-                <span>{c.label}</span>
-                {c.type === 'radio' && c.options ? (
-                  <div className="seg" role="radiogroup" aria-label={`${c.label} ${rowName} ${i + 1}`}>
-                    {c.options.map((o) => (
-                      <button type="button" key={o} role="radio" aria-checked={row[c.key] === o} className={row[c.key] === o ? 'on' : ''} onClick={() => update(i, c.key, row[c.key] === o ? '' : o)}>
-                        {o}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <input
-                    className="input"
-                    type={c.type === 'number' ? 'number' : 'text'}
-                    inputMode={c.type === 'number' ? 'numeric' : undefined}
-                    aria-label={`${c.label} ${rowName} ${i + 1}`}
-                    value={row[c.key] ?? ''}
-                    onChange={(e) => update(i, c.key, e.target.value)}
-                  />
-                )}
-              </div>
-            ))}
-            <div className="tbl__actions">
-              <button type="button" className="btn btn--danger btn--sm btn--icon" aria-label={`Eliminar ${rowName} ${i + 1}`} onClick={() => remove(i)} disabled={shown.length === 1 && Object.keys(row).length === 0}>
+            <div className="tbl__del">
+              <button
+                type="button"
+                className="btn btn--danger btn--sm btn--icon"
+                aria-label={`Eliminar ${rowName} ${i + 1}`}
+                onClick={() => remove(i)}
+                disabled={shown.length === 1 && Object.keys(row).length === 0}
+              >
                 ✕
               </button>
+            </div>
+            <div className="tbl__cells">
+              {block.columns.map((c) => (
+                <div className={`tbl__cell${(c.width ?? 1) >= 1.8 ? ' tbl__cell--wide' : ''}`} key={c.key}>
+                  <span>{c.label}</span>
+                  {c.type === 'radio' && c.options ? (
+                    <div className="seg" role="radiogroup" aria-label={`${c.label} ${rowName} ${i + 1}`}>
+                      {c.options.map((o) => (
+                        <button
+                          type="button"
+                          key={o}
+                          role="radio"
+                          aria-checked={row[c.key] === o}
+                          className={row[c.key] === o ? 'on' : ''}
+                          onClick={() => update(i, c.key, row[c.key] === o ? '' : o)}
+                        >
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <input
+                      className="input"
+                      type={c.type === 'number' ? 'number' : 'text'}
+                      inputMode={c.type === 'number' ? 'numeric' : undefined}
+                      aria-label={`${c.label} ${rowName} ${i + 1}`}
+                      placeholder={c.label}
+                      value={row[c.key] ?? ''}
+                      onChange={(e) => update(i, c.key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         ))}
@@ -250,9 +313,13 @@ function TableField({ block }: { block: TableBlock }) {
 }
 
 export function BlockView({ block }: { block: Block }) {
+  const { data } = useForm()
+  if (!isVisible(block, data)) return null
   switch (block.type) {
     case 'text':
       return <TextField block={block} />
+    case 'select':
+      return <SelectField block={block} />
     case 'date':
       return <DateField block={block} />
     case 'textarea':
@@ -269,14 +336,17 @@ export function BlockView({ block }: { block: Block }) {
       return <div className="f-heading">{block.text}</div>
     case 'note':
       return <div className="f-note">{block.text}</div>
-    case 'row':
+    case 'row': {
+      const items = block.items.filter((it) => isVisible(it, data))
+      if (items.length === 0) return null
       return (
-        <div className="f-row" style={{ '--cols': Math.min(block.items.length, 4) } as React.CSSProperties}>
-          {block.items.map((it, i) => (
+        <div className="f-row" style={{ '--cols': Math.min(items.length, 4) } as React.CSSProperties}>
+          {items.map((it, i) => (
             <BlockView key={i} block={it} />
           ))}
         </div>
       )
+    }
     case 'group':
       return (
         <fieldset className="f-group">

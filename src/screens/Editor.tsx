@@ -6,6 +6,7 @@ import { toast } from '../components/Toast'
 import { sectionsDone } from '../form/progress'
 import { sections } from '../form/schema'
 import { asString, type FieldValue, type FormData } from '../form/types'
+import { edadEn, pruneHidden } from '../form/visibility'
 import { navigate } from '../hooks/useHashRoute'
 import { canShareFiles, downloadPdf } from '../pdf/download'
 import { openPrintView } from '../pdf/print'
@@ -47,7 +48,16 @@ export function Editor({ id, sectionId }: Props) {
       set: (key: string, value: FieldValue) => {
         setReport((prev) => {
           if (!prev) return prev
-          const next = { ...prev, data: { ...prev.data, [key]: value } as FormData }
+          let data: FormData = { ...prev.data, [key]: value }
+          // Edad calculada con la fecha de nacimiento y la fecha de elaboración del informe
+          if (key === 'fecha_nacimiento' || key === 'fecha_elaboracion') {
+            const edad = edadEn(asString(data.fecha_nacimiento), asString(data.fecha_elaboracion) || new Date().toISOString().slice(0, 10))
+            if (edad) data = { ...data, edad_anios: String(edad.anios), edad_meses: String(edad.meses) }
+            else if (key === 'fecha_nacimiento' && !asString(data.fecha_nacimiento)) data = { ...data, edad_anios: '', edad_meses: '' }
+          }
+          // Los campos que quedan ocultos por la lógica del formulario se vacían
+          data = pruneHidden(data)
+          const next = { ...prev, data }
           setSaved(false)
           persist(next)
           return next

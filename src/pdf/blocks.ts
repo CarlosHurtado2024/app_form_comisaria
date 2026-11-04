@@ -71,6 +71,7 @@ export class BlockRenderer {
       case 'heading':
         return this.measureHeading(block.text, w, inner)
       case 'text':
+      case 'select':
       case 'date': {
         const raw = asString(this.data[block.key])
         const value = block.type === 'date' ? formatDate(raw) : raw

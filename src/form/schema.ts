@@ -1,7 +1,9 @@
 import type {
   Block,
   ChecksBlock,
+  Condition,
   DateBlock,
+  SelectBlock,
   GroupBlock,
   HeadingBlock,
   NoteBlock,
@@ -59,6 +61,13 @@ const table = (key: string, columns: TableColumn[], rows: number, extra: Partial
   ...extra,
 })
 const other = (key: string, label = '¿Cuál?'): OtherField => ({ key, label })
+const sel = (key: string, label: string, extra: Partial<SelectBlock> = {}): SelectBlock => ({ type: 'select', key, label, ...extra })
+const si = (key: string): Condition => ({ key, equals: 'Sí' })
+/** Asigna una condición de visibilidad a un bloque. Acepta (condición, bloque) o (bloque, condición). */
+function cond<B extends Block>(a: Condition | B, b: B | Condition): B {
+  const [block, when] = ('type' in a ? [a as B, b as Condition] : [b as B, a as Condition])
+  return { ...block, when }
+}
 
 // ---------- Secciones ----------
 
@@ -87,7 +96,11 @@ export const sections: Section[] = [
       row([
         group('Fecha de nacimiento', [d('fecha_nacimiento', ''), checks('fecha_nacimiento_desc', '', ['Se desconoce'])]),
         group('Edad en años y meses', [
-          row([t('edad_anios', 'Años', { inputType: 'number' }), t('edad_meses', 'Meses', { inputType: 'number' })]),
+          row([
+            t('edad_anios', 'Años', { inputType: 'number', readOnlyWhen: { key: 'fecha_nacimiento', truthy: true } }),
+            t('edad_meses', 'Meses', { inputType: 'number', readOnlyWhen: { key: 'fecha_nacimiento', truthy: true } }),
+          ]),
+          note('Se calcula automáticamente con la fecha de nacimiento y la fecha de elaboración del informe.'),
           checks('edad_desc', '', ['Se desconoce']),
         ]),
         radio('sexo', 'Sexo', ['Mujer', 'Hombre']),
@@ -98,9 +111,9 @@ export const sections: Section[] = [
       ]),
       row([
         group('Lugar de nacimiento', [
-          t('nac_ciudad', 'Ciudad'),
-          t('nac_departamento', 'Departamento'),
-          t('nac_pais', 'País'),
+          sel('nac_pais', 'País', { optionsFrom: 'paises' }),
+          sel('nac_departamento', 'Departamento', { optionsFrom: 'departamentos', placeholder: 'Seleccione el departamento' }),
+          sel('nac_ciudad', 'Ciudad o municipio', { optionsFrom: 'municipios', placeholder: 'Seleccione el municipio' }),
           t('nac_nacionalidad', 'Nacionalidad(es)'),
           checks('nac_desc', '', ['Se desconoce']),
         ]),
@@ -112,63 +125,64 @@ export const sections: Section[] = [
             'Documento de su país de origen',
             'Ninguno',
           ]),
-          t('doc_numero', 'Número'),
-          t('doc_nombre', 'Nombre del documento (si es de otro país)'),
+          t('doc_nombre', 'Nombre del documento', { when: { key: 'doc_tipo', equals: 'Documento de su país de origen' } }),
+          t('doc_numero', 'Número', { when: { key: 'doc_tipo', notEquals: 'Ninguno' } }),
         ]),
         group('Pertenencia étnica', [
           radio('etnia', '', ['Indígena', 'Afrocolombiano', 'Palenquero', 'Raizal', 'Rom o Gitano', 'Ninguna de las anteriores'], {
             columns: 2,
           }),
-          t('etnia_pueblo', 'Pueblo'),
-          t('etnia_comunidad', 'Comunidad'),
+          t('etnia_pueblo', 'Pueblo', { when: { key: 'etnia', equals: 'Indígena' } }),
+          t('etnia_comunidad', 'Comunidad', { when: { key: 'etnia', equals: 'Indígena' } }),
         ]),
       ]),
       row([
         group('Lengua natal', [
           t('lengua_cual', 'Cuál'),
           checks('lengua_bilingue', '', ['Bilingüe']),
-          t('lengua_segunda', 'Segunda lengua'),
+          t('lengua_segunda', 'Segunda lengua', { when: { key: 'lengua_bilingue', includes: 'Bilingüe' } }),
         ]),
         group('Discapacidad', [
           radio('discapacidad', '', ['No', 'Sí']),
           checks('discapacidad_tipo', 'Tipo', ['Física', 'Auditiva', 'Visual', 'Sordoceguera', 'Intelectual', 'Psicosocial', 'Múltiple'], {
             other: other('discapacidad_cual', '¿Cuál?'),
             columns: 2,
+            when: si('discapacidad'),
           }),
         ]),
         group('Enfermedad de cuidado especial', [
           radio('enfermedad', '', ['No', 'Sí']),
-          t('enfermedad_cual', 'Cuál'),
+          t('enfermedad_cual', 'Cuál', { when: si('enfermedad') }),
         ]),
       ]),
       row([
         group('Consumo de SPA', [
           radio('spa', '', ['No', 'Sí']),
-          checks('spa_tipo', 'Tipo de consumo', ['Experimental', 'Social', 'Habitual', 'Problemático']),
-          t('spa_sustancias', 'Tipo de sustancia(s)'),
+          checks('spa_tipo', 'Tipo de consumo', ['Experimental', 'Social', 'Habitual', 'Problemático'], { when: si('spa') }),
+          t('spa_sustancias', 'Tipo de sustancia(s)', { when: si('spa') }),
         ]),
         radio('emergencia', 'Situación de emergencia', ['Sí', 'No', 'No definido']),
         radio('desplazamiento', 'Situación de desplazamiento', ['Sí', 'No', 'No definido']),
-        group('Situación de migración', [radio('migracion', '', ['Sí', 'No']), t('migracion_tipo', 'Tipo')]),
+        group('Situación de migración', [radio('migracion', '', ['Sí', 'No']), t('migracion_tipo', 'Tipo', { when: si('migracion') })]),
       ]),
       heading('Vinculación al servicio educativo'),
-      row([
-        radio('escolarizacion', 'Escolarización', ['Sí', 'No']),
-        group('Nivel', [
-          radio('nivel', '', ['Educación inicial', 'Preescolar', 'Básica', 'Media']),
-          t('ultimo_grado', 'Último grado cursado y aprobado'),
-        ]),
-        radio('jornada', 'Jornada', ['Mañana', 'Tarde', 'Noche']),
-        group('Institución Educativa', [
-          t('ie_nombre', 'Nombre'),
-          t('ie_sede', 'Sede'),
-          radio('ie_naturaleza', 'Naturaleza', ['Oficial', 'Privada']),
-        ]),
-      ]),
+      radio('escolarizacion', 'Escolarización', ['Sí', 'No']),
+      cond(si('escolarizacion'), row([
+          group('Nivel', [
+            radio('nivel', '', ['Educación inicial', 'Preescolar', 'Básica', 'Media']),
+            t('ultimo_grado', 'Último grado cursado y aprobado'),
+          ]),
+          radio('jornada', 'Jornada', ['Mañana', 'Tarde', 'Noche']),
+          group('Institución Educativa', [
+            t('ie_nombre', 'Nombre'),
+            t('ie_sede', 'Sede'),
+            radio('ie_naturaleza', 'Naturaleza', ['Oficial', 'Privada']),
+          ]),
+      ])),
       heading('Aseguramiento al Sistema General de Seguridad Social en Salud -SGSSS-'),
       row([
         radio('regimen', 'Régimen de salud', ['Contributivo', 'Subsidiado', 'Especial', 'Ninguno', 'Sin información'], { columns: 2 }),
-        t('eps', 'EPS'),
+        t('eps', 'EPS', { when: { key: 'regimen', notEquals: 'Ninguno' } }),
       ]),
       heading('Relación de personas con quienes convive en el hogar (parientes y no parientes)'),
       table(
@@ -382,8 +396,8 @@ export const sections: Section[] = [
           'Sin ingreso',
           'En especie',
         ]),
-        group('Fuente y periodicidad', [
-          checks('ingresos_fuente', '', [
+        cond(group('Fuente y periodicidad', [
+          checks('ingresos_fuente', 'Fuente', [
             'Salario',
             'Pensión',
             'Ayuda familiar',
@@ -395,8 +409,8 @@ export const sections: Section[] = [
             'Ejercicio del comercio',
             'Otros',
           ], { other: other('ingresos_fuente_otros', 'Cuál(es)'), columns: 2 }),
-          t('ingresos_periodicidad', 'Periodicidad'),
-        ]),
+          radio('ingresos_periodicidad', 'Periodicidad', ['Diaria', 'Semanal', 'Quincenal', 'Mensual']),
+        ]), { key: 'ingresos_monto', notEquals: 'Sin ingreso' }),
         ta('ingresos_aportantes', 'Aportantes al presupuesto familiar', 4),
       ]),
       heading('Identificación de Factores'),
