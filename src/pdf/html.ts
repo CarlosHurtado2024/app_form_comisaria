@@ -107,9 +107,7 @@ export function buildPrintHtml(data: FormData, profile: Profile, assets: HtmlAss
   const nombre = v('prof_nombre') || profile.nombre
   const tarjeta = v('prof_tarjeta') || profile.tarjeta
   const cargo = profile.cargo || 'Profesional en Trabajo Social'
-  const firma = profile.firma
-    ? `<img class="firma" src="${profile.firma}" alt="Firma">`
-    : '<div style="height:48px"></div>'
+  const firma = `<div class="firma-slot">${profile.firma ? `<img class="firma" src="${profile.firma}" alt="Firma">` : ''}</div>`
 
   const nna = `${v('nombres')} ${v('apellidos')}`.trim()
   const title = esc(`Informe Trabajo Social${nna ? ` - ${nna}` : ''}`)
@@ -268,7 +266,7 @@ ${colgroup([18, 26, 16, 40])}
 </table>
 
 <table>
-${colgroup([4, 32, 14, 14, 18, 8, 10])}
+${colgroup([4, 28, 14, 14, 16, 8, 16])}
 <tr>
   <td class="b c">#</td>
   <td class="b">Nombre</td>
@@ -505,7 +503,8 @@ ${colgroup([50, 50])}
   tr.cont.first td { border-top: 1px solid #000; }
   tr.more.last td { border-bottom: 1px solid #000; }
   .firma-box { width: 60%; margin-top: 4px; text-align: center; }
-  .firma { max-height: 52px; max-width: 100%; display: block; margin: 0 auto; }
+  .firma-slot { height: 54px; display: flex; align-items: flex-end; justify-content: center; }
+  .firma { max-height: 52px; max-width: 100%; display: block; }
   .firma-linea { border-top: 1px solid #000; margin: 2px 0 2px; }
   /* encabezado */
   .hdr { margin-bottom: 8px; }
@@ -518,9 +517,11 @@ ${colgroup([50, 50])}
   .hdr .meta { font-size: 7.5pt; text-align: center; line-height: 1.9; }
   /* páginas */
   #src { position: absolute; left: -10000px; top: 0; width: 7.4in; }
-  .page { width: 8.5in; height: 11in; padding: 14mm; background: #fff; overflow: hidden; break-after: page; page-break-after: always; }
+  .page { width: 8.5in; height: 11in; padding: 14mm; background: #fff; overflow: hidden; display: flex; flex-direction: column; break-after: page; page-break-after: always; }
   .page:last-child { break-after: auto; page-break-after: auto; }
-  .page .content { height: calc(11in - 28mm); overflow: hidden; }
+  .page .hdr { flex: none; }
+  /* El contenido ocupa exactamente el espacio que deja el encabezado */
+  .page .content { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   /* vista en pantalla */
   @media screen {
     #out { padding: 60px 8px 24px; }
@@ -549,7 +550,7 @@ ${colgroup([50, 50])}
 <div id="out"></div>
 <script id="hdr" type="text/template">${header}</script>
 <script>
-(function () {
+function paginar() {
   var src = document.getElementById('src');
   var out = document.getElementById('out');
   var headerHtml = document.getElementById('hdr').innerHTML;
@@ -567,7 +568,21 @@ ${colgroup([50, 50])}
     content = c;
     return c;
   }
-  function overflows() { return content.scrollHeight > content.clientHeight + 1; }
+  // Margen de seguridad: la maquetación de impresión puede diferir unos píxeles de la de pantalla.
+  function isLabelRow(row) {
+    var cells = row.cells;
+    if (!cells.length) return false;
+    for (var k = 0; k < cells.length; k++) {
+      if (!/(^|\s)(b|sec)(\s|$)/.test(cells[k].className)) return false;
+    }
+    return true;
+  }
+  function overflows() {
+    var last = content.lastElementChild;
+    if (!last) return false;
+    var used = last.getBoundingClientRect().bottom - content.getBoundingClientRect().top;
+    return used > content.clientHeight - 12;
+  }
   newPage();
   var tables = Array.prototype.slice.call(src.children);
   tables.forEach(function (t) {
@@ -597,11 +612,19 @@ ${colgroup([50, 50])}
         var onlyRow = cur.rows.length === 1 && content.children.length === 1;
         if (!onlyRow) {
           cur.removeChild(r);
+          // Las filas de título que quedarían solas al pie de página acompañan a su contenido.
+          var carried = [];
+          while (cur.rows.length > 0 && carried.length < 3 && isLabelRow(cur.rows[cur.rows.length - 1])) {
+            var lr = cur.rows[cur.rows.length - 1];
+            cur.removeChild(lr);
+            carried.unshift(lr);
+          }
           if (cur.rows.length === 0) content.removeChild(cur);
           else cur.rows[cur.rows.length - 1].classList.add('last');
           newPage();
           startTable();
-          r.classList.add('first');
+          carried.forEach(function (lr) { cur.appendChild(lr); });
+          if (carried.length === 0) r.classList.add('first');
           cur.appendChild(r);
         }
       }
@@ -617,7 +640,9 @@ ${colgroup([50, 50])}
   }
   fit();
   window.addEventListener('resize', fit);
-})();
+}
+if (document.readyState === 'complete') paginar();
+else window.addEventListener('load', paginar);
 </script>
 </body>
 </html>`
