@@ -211,7 +211,13 @@ export class FlowDocument {
   /** Casilla de verificación con marca vectorial. */
   checkbox(x: number, top: number, checked: boolean, size = CHECK): void {
     const y = top - LINE_VALUE * 0.5 - size / 2
-    this.page.drawRectangle({ x, y, width: size, height: size, borderColor: INK, borderWidth: 0.7, color: checked ? INK : WHITE })
+    this.page.drawRectangle({ x, y, width: size, height: size, borderColor: INK, borderWidth: 0.7, color: WHITE })
+    if (checked) {
+      // Marca en forma de X dentro de la casilla
+      const i = 1.1
+      this.page.drawLine({ start: { x: x + i, y: y + i }, end: { x: x + size - i, y: y + size - i }, thickness: 0.9, color: INK })
+      this.page.drawLine({ start: { x: x + i, y: y + size - i }, end: { x: x + size - i, y: y + i }, thickness: 0.9, color: INK })
+    }
   }
 
   image(img: PDFImage, x: number, top: number, maxW: number, maxH: number): { w: number; h: number } {

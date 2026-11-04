@@ -491,8 +491,10 @@ ${colgroup([50, 50])}
   .sec { background: #e6e6e6; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .b { font-weight: bold; }
   .c { text-align: center; }
-  .cb { display: inline-block; width: 8px; height: 8px; border: 1px solid #000; margin-right: 3px; vertical-align: -1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .cb.on { background: #000; }
+  .cb { position: relative; display: inline-block; width: 8px; height: 8px; border: 1px solid #000; margin-right: 3px; vertical-align: -1px; }
+  /* Casilla marcada: X trazada con bordes (se imprime aunque no se activen los fondos) */
+  .cb.on::before, .cb.on::after { content: ""; position: absolute; left: 50%; top: 50%; width: 8.5px; height: 0; border-top: 1.2px solid #000; transform: translate(-50%, -50%) rotate(45deg); }
+  .cb.on::after { transform: translate(-50%, -50%) rotate(-45deg); }
   .line { display: inline-block; border-bottom: 1px solid #000; min-width: 90px; min-height: 10px; line-height: 10px; padding: 0 2px; vertical-align: bottom; }
   .opt { line-height: 1.4; }
   .small { font-size: 7.4pt; }
