@@ -25,3 +25,6 @@ dist-ssr
 
 # Caché de herramientas locales
 .impeccable/
+
+# PDF de prueba generados localmente
+pruebas_pdf/
