@@ -32,3 +32,6 @@ pruebas_pdf/
 # Variables de entorno locales
 .env
 .env.local
+
+# Credenciales locales
+CREDENCIALES_ADMIN_TEMPORAL.txt
