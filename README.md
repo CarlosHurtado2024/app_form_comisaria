@@ -18,6 +18,9 @@ incluyendo los datos del profesional que lo elabora y su firma.
     ("Guardar como PDF"). Resultado vectorial, con encabezado y "Página X de N" en cada hoja.
   - **Descarga directa**: construye el PDF con `pdf-lib` sin pasar por el cuadro de impresión.
     Útil para compartir desde el celular (WhatsApp, correo).
+- **Salida en Word (.docx)**: el profesional elige el formato (PDF o Word) en la sección final.
+  El documento Word se genera en el navegador con la librería `docx`, con el mismo contenido,
+  encabezado y pie en cada hoja, casillas, tablas, texto con formato, firma y anexo fotográfico.
 - **Varios informes** guardados, con duplicado y eliminación.
 - **Evidencia fotográfica opcional** (anexo al final): el profesional decide si anexa fotos
   (cámara o galería). Se reducen en el dispositivo (máx. 1600 px, JPEG), se guardan en IndexedDB

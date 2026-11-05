@@ -5,6 +5,7 @@ import { toast } from '../components/Toast'
 import { navigate } from '../hooks/useHashRoute'
 import { adminApi } from '../lib/adminApi'
 import { mensajeError, supabase, type InformeRow, type PerfilRow } from '../lib/supabase'
+import { downloadDocx } from '../docx/download'
 import { conFotosParaPdf } from '../evidencias/fotos'
 import { openPrintView } from '../pdf/print'
 import { perfilToProfile } from '../auth/AuthContext'
@@ -323,6 +324,18 @@ function TodosLosInformes() {
     })
   }
 
+  const verWord = async (inf: InformeConAutor) => {
+    setBusyId(inf.id)
+    try {
+      const { data } = await supabase.from('perfiles').select('*').eq('id', inf.autor_id).single()
+      await downloadDocx(await conFotosParaPdf(inf.id, { ...inf.datos, _codigo: inf.codigo ?? '' }), perfilToProfile((data as PerfilRow) ?? null))
+    } catch (e) {
+      toast(mensajeError(e), 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const q = filtro.trim().toLowerCase()
   const lista = informes.filter((i) =>
     !q || [i.codigo, i.nna_nombres, i.nna_apellidos, i.nna_documento, i.perfiles?.nombre].some((v) => (v ?? '').toLowerCase().includes(q)),
@@ -375,6 +388,9 @@ function TodosLosInformes() {
               <div className="report-card__actions">
                 <button type="button" className="btn btn--ghost btn--sm" onClick={() => verPdf(i)}>
                   Ver PDF
+                </button>
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => void verWord(i)} disabled={busyId === i.id}>
+                  Word
                 </button>
               </div>
             </article>

@@ -6,6 +6,7 @@ import { conFotosParaPdf, eliminarFotosDeInforme } from '../evidencias/fotos'
 import { progressPercent } from '../form/progress'
 import { asString } from '../form/types'
 import { navigate } from '../hooks/useHashRoute'
+import { downloadDocx } from '../docx/download'
 import { downloadPdf } from '../pdf/download'
 import { openPrintView } from '../pdf/print'
 import { storageFor, type Report } from '../store/storage'
@@ -63,6 +64,18 @@ export function Home() {
       await downloadPdf(await data, profile)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo generar el PDF', 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const word = async (r: Report) => {
+    setBusy(r.id)
+    try {
+      await downloadDocx(await conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' }), profile)
+      toast('Documento Word descargado')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'No se pudo generar el documento Word', 'error')
     } finally {
       setBusy(null)
     }
@@ -165,6 +178,9 @@ export function Home() {
                   <div className="report-card__actions" onClick={(e) => e.stopPropagation()}>
                     <button type="button" className="btn btn--ghost btn--sm" onClick={() => pdf(r)} disabled={busy === r.id}>
                       {busy === r.id ? 'Generando…' : 'PDF'}
+                    </button>
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => word(r)} disabled={busy === r.id}>
+                      Word
                     </button>
                     <button type="button" className="btn btn--ghost btn--sm" onClick={() => duplicate(r)}>
                       Duplicar

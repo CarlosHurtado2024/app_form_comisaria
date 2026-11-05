@@ -561,6 +561,7 @@ h3 {
 }
 .seg {
   display: inline-flex;
+  align-self: flex-start;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   overflow: hidden;
