@@ -105,6 +105,24 @@ export function buildPrintHtml(data: FormData, profile: Profile, assets: HtmlAss
     return `<tr><td style="height:20px">${esc(row.nombre ?? '')}&nbsp;</td><td>${esc(row.rol ?? '')}&nbsp;</td><td>${esc(row.contacto ?? '')}&nbsp;</td></tr>`
   }).join('')
 
+  // ---------- Evidencia fotográfica ----------
+  const fotos = asRows(data._fotos).filter((f) => typeof f.src === 'string' && f.src)
+  const fotoRows: string[] = []
+  for (let i = 0; i < fotos.length; i += 2) {
+    const par = fotos.slice(i, i + 2)
+    const celdas = par.map((f, j) => `<td class="foto"><img src="${f.src}" alt="Fotografía ${i + j + 1}"><div class="small">${esc(f.descripcion ?? '')}</div></td>`)
+    if (celdas.length === 1) celdas.push('<td class="foto"></td>')
+    fotoRows.push(`<tr>${celdas.join('')}</tr>`)
+  }
+  const anexo = fotoRows.length
+    ? `
+<table>
+${colgroup([50, 50])}
+<tr><td colspan="2" class="sec">Anexo. Evidencia fotográfica</td></tr>
+${fotoRows.join('\n')}
+</table>`
+    : ''
+
   // ---------- Firma ----------
   const nombre = v('prof_nombre') || profile.nombre
   const tarjeta = v('prof_tarjeta') || profile.tarjeta
@@ -474,7 +492,7 @@ ${colgroup([50, 50])}
   <td style="height:90px"><span class="b">Firma:</span><div class="firma-box">${firma}<div class="firma-linea"></div><div class="b">${esc(nombre)}</div><div class="small">${esc(cargo)}${tarjeta ? ` &middot; T.P. ${esc(tarjeta)}` : ''}</div></div></td>
   <td>&nbsp;</td>
 </tr>
-</table>`
+</table>${anexo}`
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -508,6 +526,8 @@ ${colgroup([50, 50])}
   tr.more.last td { border-bottom: 1px solid #000; }
   .firma-box { width: 60%; margin-top: 4px; text-align: center; }
   .firma-slot { height: 54px; display: flex; align-items: flex-end; justify-content: center; }
+  .foto { text-align: center; padding: 6px; }
+  .foto img { display: block; margin: 0 auto 3px; max-width: 100%; max-height: 300px; object-fit: contain; }
   .firma { max-height: 52px; max-width: 100%; display: block; }
   .firma-linea { border-top: 1px solid #000; margin: 2px 0 2px; }
   /* encabezado */

@@ -1,3 +1,4 @@
+import { olvidarFotosLocales, sincronizarFotos } from '../evidencias/fotos'
 import { isOnline, supabase, type InformeRow } from '../lib/supabase'
 import type { Report, Storage } from './storage'
 
@@ -5,6 +6,7 @@ export interface SyncResult {
   subidos: number
   bajados: number
   eliminados: number
+  fotosSubidas: number
   error?: string
 }
 
@@ -28,7 +30,7 @@ function rowToReport(row: InformeRow): Report {
  * 3. Descarga los informes del usuario que no estén en el dispositivo o sean más recientes.
  */
 export async function sincronizar(uid: string, store: Storage): Promise<SyncResult> {
-  const result: SyncResult = { subidos: 0, bajados: 0, eliminados: 0 }
+  const result: SyncResult = { subidos: 0, bajados: 0, eliminados: 0, fotosSubidas: 0 }
   if (!isOnline()) return { ...result, error: 'Sin conexión' }
 
   try {
@@ -55,13 +57,19 @@ export async function sincronizar(uid: string, store: Storage): Promise<SyncResu
       result.subidos += 1
     }
 
+    // Fotos pendientes de subir o de borrar en Storage
+    result.fotosSubidas = (await sincronizarFotos(uid)).subidas
+
     // 3: descargar
     const { data: rows, error } = await supabase.from('informes').select('*').eq('autor_id', uid)
     if (error) throw error
     const remoteIds = new Set<string>()
     for (const row of rows as InformeRow[]) {
       if (row.eliminado_en) {
-        if (store.listAllRaw().some((x) => x.id === row.id)) store.removeRaw(row.id)
+        if (store.listAllRaw().some((x) => x.id === row.id)) {
+          store.removeRaw(row.id)
+          void olvidarFotosLocales(row.id)
+        }
         continue
       }
       remoteIds.add(row.id)
@@ -76,7 +84,10 @@ export async function sincronizar(uid: string, store: Storage): Promise<SyncResu
     }
     // Informes que ya no existen en el servidor (eliminados o reasignados) y no tienen cambios locales
     for (const local of store.listAllRaw()) {
-      if (!local.dirty && local.syncedAt && !remoteIds.has(local.id)) store.removeRaw(local.id)
+      if (!local.dirty && local.syncedAt && !remoteIds.has(local.id)) {
+        store.removeRaw(local.id)
+        void olvidarFotosLocales(local.id)
+      }
     }
   } catch (e) {
     result.error = e instanceof Error ? e.message : 'Error de sincronización'

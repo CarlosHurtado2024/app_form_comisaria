@@ -450,6 +450,16 @@ export const sections: Section[] = [
       row([t('prof_tarjeta', 'Tarjeta o registro profesional'), d('prof_fecha_entrega', 'Fecha de entrega del informe')]),
     ],
   },
+  {
+    id: 'evidencia',
+    title: 'ANEXO. EVIDENCIA FOTOGRÁFICA (OPCIONAL)',
+    short: 'Evidencia fotográfica',
+    blocks: [
+      note('Las fotografías se guardan de forma segura asociadas a este informe y se incluyen como anexo al final del PDF.'),
+      yn('anexa_evidencia', '¿Anexa evidencia fotográfica al informe?', '', ''),
+      { type: 'fotos', key: 'evidencias', label: 'Fotografías', enabledBy: 'anexa_evidencia' },
+    ],
+  },
 ]
 
 export const sectionById = (id: string): Section | undefined => sections.find((s) => s.id === id)

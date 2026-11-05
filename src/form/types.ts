@@ -137,6 +137,15 @@ export interface NoteBlock extends Conditional {
   text: string
 }
 
+/** Evidencia fotográfica: lista de fotos con descripción (se anexa al final del PDF). */
+export interface PhotosBlock extends Conditional {
+  type: 'fotos'
+  key: string
+  label: string
+  /** Clave del campo Sí/No que habilita el anexo */
+  enabledBy: string
+}
+
 export type Block =
   | TextBlock
   | SelectBlock
@@ -150,6 +159,7 @@ export type Block =
   | GroupBlock
   | HeadingBlock
   | NoteBlock
+  | PhotosBlock
 
 export interface Section {
   id: string

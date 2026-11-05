@@ -4,6 +4,10 @@ import type { FieldValue, FormData } from '../form/types'
 export interface FormApi {
   data: FormData
   set: (key: string, value: FieldValue) => void
+  /** Identificador del informe que se edita (lo usan las fotos) */
+  informeId?: string
+  /** Usuario autenticado (carpeta de las fotos en Storage) */
+  uid?: string
 }
 
 export const FormContext = createContext<FormApi | null>(null)

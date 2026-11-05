@@ -5,6 +5,7 @@ import { toast } from '../components/Toast'
 import { navigate } from '../hooks/useHashRoute'
 import { adminApi } from '../lib/adminApi'
 import { mensajeError, supabase, type InformeRow, type PerfilRow } from '../lib/supabase'
+import { conFotosParaPdf } from '../evidencias/fotos'
 import { openPrintView } from '../pdf/print'
 import { perfilToProfile } from '../auth/AuthContext'
 
@@ -308,9 +309,18 @@ function TodosLosInformes() {
     await cargar()
   }
 
-  const verPdf = async (inf: InformeConAutor) => {
-    const { data } = await supabase.from('perfiles').select('*').eq('id', inf.autor_id).single()
-    openPrintView({ ...inf.datos, _codigo: inf.codigo ?? '' }, perfilToProfile((data as PerfilRow) ?? null))
+  const verPdf = (inf: InformeConAutor) => {
+    // La pestaña se abre dentro del clic (el navegador no la bloquea); el perfil y las fotos llegan después
+    const perfil = supabase
+      .from('perfiles')
+      .select('*')
+      .eq('id', inf.autor_id)
+      .single()
+      .then(({ data }) => perfilToProfile((data as PerfilRow) ?? null))
+    const datos = conFotosParaPdf(inf.id, { ...inf.datos, _codigo: inf.codigo ?? '' })
+    void perfil.then((p) => {
+      if (!openPrintView(datos, p)) toast('El navegador bloqueó la ventana emergente', 'error')
+    })
   }
 
   const q = filtro.trim().toLowerCase()

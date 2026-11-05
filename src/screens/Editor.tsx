@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext'
 import { BlockView } from '../components/BlockView'
 import { FormContext, type FormApi } from '../components/FormContext'
 import { TopBar } from '../components/TopBar'
+import { conFotosParaPdf } from '../evidencias/fotos'
 import { toast } from '../components/Toast'
 import { sectionsDone } from '../form/progress'
 import { sections } from '../form/schema'
@@ -64,6 +65,8 @@ export function Editor({ id, sectionId }: Props) {
     if (!report) return null
     return {
       data: report.data,
+      informeId: report.id,
+      uid,
       set: (key: string, value: FieldValue) => {
         setReport((prev) => {
           if (!prev) return prev
@@ -83,7 +86,7 @@ export function Editor({ id, sectionId }: Props) {
         })
       },
     }
-  }, [report, persist])
+  }, [report, persist, uid])
 
   const flush = () => {
     if (!report) return
@@ -101,7 +104,7 @@ export function Editor({ id, sectionId }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const pdfData = (): FormData => ({ ...report!.data, _codigo: report!.codigo ?? '' })
+  const pdfData = (): Promise<FormData> => conFotosParaPdf(report!.id, { ...report!.data, _codigo: report!.codigo ?? '' })
 
   /** Vista fiel al formato (HTML) para "Guardar como PDF" con el motor del navegador. */
   const printPdf = () => {
@@ -118,7 +121,7 @@ export function Editor({ id, sectionId }: Props) {
     flush()
     setBusy(true)
     try {
-      const used = await downloadPdf(pdfData(), profile, mode)
+      const used = await downloadPdf(await pdfData(), profile, mode)
       toast(used === 'share' ? 'PDF compartido' : used === 'open' ? 'PDF abierto en una pestaña nueva' : 'PDF descargado')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return

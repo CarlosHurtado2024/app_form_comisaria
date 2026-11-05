@@ -19,7 +19,11 @@ incluyendo los datos del profesional que lo elabora y su firma.
   - **Descarga directa**: construye el PDF con `pdf-lib` sin pasar por el cuadro de impresión.
     Útil para compartir desde el celular (WhatsApp, correo).
 - **Varios informes** guardados, con duplicado y eliminación.
-- Sin backend: toda la información queda únicamente en el dispositivo (`localStorage`).
+- **Evidencia fotográfica opcional** (anexo al final): el profesional decide si anexa fotos
+  (cámara o galería). Se reducen en el dispositivo (máx. 1600 px, JPEG), se guardan en IndexedDB
+  para trabajar sin conexión y se suben al bucket privado `evidencias` de Supabase Storage al
+  sincronizar. Aparecen como anexo, dos por fila con su descripción, en los dos tipos de PDF.
+- Los informes se guardan en el dispositivo (`localStorage`) y se sincronizan con Supabase.
 
 ## Estructura
 
@@ -66,7 +70,8 @@ guardan primero en el dispositivo (funciona sin conexión) y se sincronizan con 
 
 ### Puesta en marcha
 
-1. Ejecutar la migración en el SQL Editor del proyecto (o `supabase db push`).
+1. Ejecutar las migraciones de `supabase/migrations` en orden en el SQL Editor del proyecto
+   (o `supabase db push`). La tercera crea el bucket privado `evidencias` y sus políticas.
 2. Desplegar la función: `supabase functions deploy admin-users` (usa las variables que Supabase
    inyecta automáticamente: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
 3. Crear el primer administrador en **Authentication → Users → Add user** (correo, contraseña y

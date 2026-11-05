@@ -1,9 +1,9 @@
 import type { PDFImage } from 'pdf-lib'
 import { FORM_SUBTITLE, FORM_TITLE, sections } from '../form/schema'
-import { asString, type FormData } from '../form/types'
+import { asRows, asString, type FormData } from '../form/types'
 import type { Profile } from '../store/storage'
 import { BlockRenderer } from './blocks'
-import { FlowDocument, GREEN, INK, LINE_LABEL, LINE_VALUE, MUTED, PAD, SIZE_LABEL, SIZE_VALUE, formatDate, sanitize } from './engine'
+import { FlowDocument, GREEN, INK, LINE_LABEL, LINE_VALUE, MUTED, PAD, SIZE_LABEL, SIZE_VALUE, formatDate, sanitize, wrapText } from './engine'
 
 export interface PdfAssets {
   escudo?: Uint8Array
@@ -55,6 +55,8 @@ export async function generatePdf({ data, profile, assets }: GenerateOptions): P
   doc.advance(3)
 
   for (const section of sections) {
+    // La evidencia fotográfica se imprime como anexo al final (drawPhotoAnnex)
+    if (section.id === 'evidencia') continue
     // La sección del profesional (datos + firma) se mantiene completa en una misma página.
     if (section.id === 'profesional') doc.ensure(180)
     r.sectionTitle(section.title)
@@ -62,6 +64,8 @@ export async function generatePdf({ data, profile, assets }: GenerateOptions): P
     if (section.id === 'profesional') await drawSignature(doc, data, profile)
     doc.advance(4)
   }
+
+  await drawPhotoAnnex(doc, r, data)
 
   doc.drawHeaders({
     ...HEADER_TEXT,
@@ -77,6 +81,50 @@ export async function generatePdf({ data, profile, assets }: GenerateOptions): P
   doc.pdf.setProducer('Informe TS - Comisaría de Familia')
   doc.pdf.setCreator('Informe TS PWA')
   return doc.pdf.save()
+}
+
+/** Anexo con la evidencia fotográfica (`data._fotos`: [{ descripcion, src }]), dos fotos por fila. */
+async function drawPhotoAnnex(doc: FlowDocument, r: BlockRenderer, data: FormData): Promise<void> {
+  const fotos = asRows(data._fotos)
+  if (fotos.length === 0) return
+  const imgs: { img: PDFImage; descripcion: string }[] = []
+  for (const f of fotos) {
+    const img = await embedDataUrl(doc, f.src ?? '')
+    if (img) imgs.push({ img, descripcion: f.descripcion ?? '' })
+  }
+  if (imgs.length === 0) return
+
+  r.sectionTitle('ANEXO. EVIDENCIA FOTOGRÁFICA')
+  const cols = 2
+  const cellW = doc.width / cols
+  const maxW = cellW - 2 * PAD
+  const maxH = 210
+  for (let i = 0; i < imgs.length; i += cols) {
+    const fila = imgs.slice(i, i + cols)
+    const medidas = fila.map(({ img, descripcion }) => {
+      const s = Math.min(maxW / img.width, maxH / img.height, 1)
+      const caption = wrapText(doc.fonts.regular, SIZE_LABEL, maxW, descripcion)
+      return { h: img.height * s, caption }
+    })
+    const imgH = Math.max(...medidas.map((m) => m.h))
+    const capLines = Math.max(...medidas.map((m) => m.caption.length))
+    const rowH = PAD + imgH + (capLines ? 3 + capLines * LINE_LABEL : 0) + PAD
+    doc.ensure(rowH)
+    const top = doc.y
+    doc.box(doc.left, top, doc.width, rowH)
+    fila.forEach(({ img }, j) => {
+      const x = doc.left + j * cellW
+      if (j > 0) doc.vline(x, top, top - rowH)
+      const s = Math.min(maxW / img.width, maxH / img.height, 1)
+      const w = img.width * s
+      const h = img.height * s
+      // Imagen centrada en la celda, alineada arriba
+      doc.page.drawImage(img, { x: x + PAD + (maxW - w) / 2, y: top - PAD - h, width: w, height: h })
+      const cap = medidas[j].caption
+      if (cap.length) doc.lines(cap, x + PAD, top - PAD - imgH - 3, SIZE_LABEL, doc.fonts.regular, LINE_LABEL, MUTED)
+    })
+    doc.advance(rowH)
+  }
 }
 
 async function drawSignature(doc: FlowDocument, data: FormData, profile: Profile): Promise<void> {

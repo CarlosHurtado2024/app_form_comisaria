@@ -67,6 +67,7 @@ export class BlockRenderer {
   measure(block: Block, w: number, inner = false): Measured {
     switch (block.type) {
       case 'note':
+      case 'fotos':
         return { h: 0, draw: () => undefined }
       case 'heading':
         return this.measureHeading(block.text, w, inner)

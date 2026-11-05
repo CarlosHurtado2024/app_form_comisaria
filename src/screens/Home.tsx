@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { TopBar } from '../components/TopBar'
 import { toast } from '../components/Toast'
+import { conFotosParaPdf, eliminarFotosDeInforme } from '../evidencias/fotos'
 import { progressPercent } from '../form/progress'
 import { asString } from '../form/types'
 import { navigate } from '../hooks/useHashRoute'
@@ -40,6 +41,7 @@ export function Home() {
   const remove = (r: Report) => {
     const nombre = `${asString(r.data.nombres)} ${asString(r.data.apellidos)}`.trim() || 'este informe'
     if (!confirm(`¿Eliminar ${nombre}${r.codigo ? ` (${r.codigo})` : ''}? Esta acción no se puede deshacer.`)) return
+    void eliminarFotosDeInforme(uid, r.id, r.data)
     storage.deleteReport(r.id)
     refresh()
     sync.schedule(500)
@@ -54,11 +56,11 @@ export function Home() {
   }
 
   const pdf = async (r: Report) => {
-    const data = { ...r.data, _codigo: r.codigo ?? '' }
+    const data = conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' })
     if (openPrintView(data, profile)) return
     setBusy(r.id)
     try {
-      await downloadPdf(data, profile)
+      await downloadPdf(await data, profile)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo generar el PDF', 'error')
     } finally {

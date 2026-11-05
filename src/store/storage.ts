@@ -157,7 +157,9 @@ export function createStorage(uid: string, store: KeyValueStore = defaultStore()
     const src = getReport(id)
     if (!src) return undefined
     const now = new Date().toISOString()
-    const copy: Report = { id: newId(), codigo: null, autorId: uid, createdAt: now, updatedAt: now, dirty: true, data: { ...src.data } }
+    // Las fotos pertenecen al informe original: la copia empieza sin evidencia
+    const { evidencias: _evidencias, anexa_evidencia: _anexa, ...data } = src.data
+    const copy: Report = { id: newId(), codigo: null, autorId: uid, createdAt: now, updatedAt: now, dirty: true, data }
     writeAll([copy, ...readAll()])
     return copy
   }

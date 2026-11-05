@@ -13,6 +13,7 @@ import {
   type YesNoBlock,
 } from '../form/types'
 import { isVisible, matches, selectOptions } from '../form/visibility'
+import { EvidenceField } from './EvidenceField'
 import { useForm } from './FormContext'
 
 const CheckIcon = () => (
@@ -336,6 +337,8 @@ export function BlockView({ block }: { block: Block }) {
       return <div className="f-heading">{block.text}</div>
     case 'note':
       return <div className="f-note">{block.text}</div>
+    case 'fotos':
+      return <EvidenceField block={block} />
     case 'row': {
       const items = block.items.filter((it) => isVisible(it, data))
       if (items.length === 0) return null
