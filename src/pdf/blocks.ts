@@ -1,4 +1,5 @@
 import type { PDFFont } from 'pdf-lib'
+import { drawRich, wrapRich, type RichWrappedLine } from './richpdf'
 import {
   BAR_FILL,
   BAR_SOFT,
@@ -57,9 +58,15 @@ export class BlockRenderer {
     return label ? wrapText(this.bold, SIZE_LABEL, w - 2 * PAD, label) : []
   }
 
-  private valueLines(value: string, w: number, opts?: { bullets?: boolean }): WrappedLine[] {
+  private valueLines(value: string, w: number): WrappedLine[] {
     if (!value.trim()) return []
-    return wrapText(this.regular, SIZE_VALUE, w - 2 * PAD, value, opts?.bullets ? { prefix: '• ', indent: 7 } : {})
+    return wrapText(this.regular, SIZE_VALUE, w - 2 * PAD, value)
+  }
+
+  /** Texto largo con formato (negrita, listas...) y justificado. */
+  private richLines(value: string, w: number, opts?: { bullets?: boolean }): RichWrappedLine[] {
+    if (!value.trim()) return []
+    return wrapRich(this.doc.fonts, SIZE_VALUE, w - 2 * PAD, value, { autoBullet: opts?.bullets })
   }
 
   // ---------- Medición + dibujo por tipo ----------
@@ -123,7 +130,7 @@ export class BlockRenderer {
 
   private measureTextArea(block: TextAreaBlock, w: number, inner: boolean): Measured {
     const ll = this.labelLines(block.label, w)
-    const vl = this.valueLines(asString(this.data[block.key]), w, { bullets: block.bullets })
+    const vl = this.richLines(asString(this.data[block.key]), w, { bullets: block.bullets })
     const minLines = Math.min(block.rows ?? 3, 3)
     const h = PAD + ll.length * LINE_LABEL + Math.max(minLines, vl.length) * LINE_VALUE + PAD
     return {
@@ -132,7 +139,7 @@ export class BlockRenderer {
         if (!inner) this.doc.box(x, top, ww, hh)
         let yy = top - PAD
         yy -= this.doc.lines(ll, x + PAD, yy, SIZE_LABEL, this.bold, LINE_LABEL)
-        this.doc.lines(vl, x + PAD, yy, SIZE_VALUE, this.regular, LINE_VALUE)
+        drawRich(this.doc, vl, x + PAD, yy, SIZE_VALUE, LINE_VALUE, ww - 2 * PAD)
       },
     }
   }
@@ -144,7 +151,7 @@ export class BlockRenderer {
   flowTextArea(block: TextAreaBlock, w: number): void {
     const doc = this.doc
     const ll = this.labelLines(block.label, w)
-    const vl = this.valueLines(asString(this.data[block.key]), w, { bullets: block.bullets })
+    const vl = this.richLines(asString(this.data[block.key]), w, { bullets: block.bullets })
     const minLines = Math.min(block.rows ?? 3, 3)
     const total = PAD + ll.length * LINE_LABEL + Math.max(minLines, vl.length) * LINE_VALUE + PAD
     if (total <= doc.available || doc.available < 60) {
@@ -169,7 +176,7 @@ export class BlockRenderer {
         doc.text(`${block.label || 'Continuación'} (continuación)`, doc.left + PAD, yy, SIZE_LABEL, this.bold, MUTED, LINE_LABEL)
         yy -= LINE_LABEL
       }
-      doc.lines(part, doc.left + PAD, yy, SIZE_VALUE, this.regular, LINE_VALUE)
+      drawRich(doc, part, doc.left + PAD, yy, SIZE_VALUE, LINE_VALUE, w - 2 * PAD)
       doc.advance(h)
       first = false
       if (remaining.length > 0) doc.newPage()
@@ -222,7 +229,7 @@ export class BlockRenderer {
     const text = asString(this.data[`${block.key}_texto`])
     const ll = this.labelLines(block.label, w)
     const innerW = w - 2 * PAD
-    const tl = this.valueLines(text, w)
+    const tl = this.richLines(text, w)
     const h = PAD + ll.length * LINE_LABEL + LINE_VALUE + Math.max(1, tl.length) * LINE_VALUE + PAD
     return {
       h,
@@ -240,7 +247,7 @@ export class BlockRenderer {
         drawOpt(x + PAD, 'No', block.noLabel ?? '', value === 'No')
         drawOpt(x + PAD + half, 'Sí', block.yesLabel ?? '', value === 'Sí')
         yy -= LINE_VALUE
-        this.doc.lines(tl, x + PAD, yy, SIZE_VALUE, this.regular, LINE_VALUE)
+        drawRich(this.doc, tl, x + PAD, yy, SIZE_VALUE, LINE_VALUE, innerW)
       },
     }
   }
@@ -252,8 +259,8 @@ export class BlockRenderer {
     const colWs = weights.map((wt) => (w * wt) / totalWeight)
     const headerH = LINE_LABEL + 3
     const ll = this.labelLines(block.label ?? '', w)
-    // Filas: las diligenciadas y al menos el número indicado en el formato
-    const count = Math.max(block.rows, rows.length)
+    // Filas: solo las diligenciadas (al menos una, para que se vea la tabla)
+    const count = Math.max(1, rows.length)
     const cells: WrappedLine[][][] = []
     const rowHs: number[] = []
     for (let r = 0; r < count; r++) {

@@ -57,6 +57,8 @@ export async function generatePdf({ data, profile, assets }: GenerateOptions): P
   for (const section of sections) {
     // La evidencia fotográfica se imprime como anexo al final (drawPhotoAnnex)
     if (section.id === 'evidencia') continue
+    // El análisis de derechos es opcional
+    if (section.id === 'derechos' && !incluyeDerechos(data)) continue
     // La sección del profesional (datos + firma) se mantiene completa en una misma página.
     if (section.id === 'profesional') doc.ensure(180)
     r.sectionTitle(section.title)
@@ -81,6 +83,13 @@ export async function generatePdf({ data, profile, assets }: GenerateOptions): P
   doc.pdf.setProducer('Informe TS - Comisaría de Familia')
   doc.pdf.setCreator('Informe TS PWA')
   return doc.pdf.save()
+}
+
+/** La sección 7 se imprime solo si el profesional la incluyó (o si tiene contenido en informes antiguos). */
+export function incluyeDerechos(data: FormData): boolean {
+  if (data.analiza_derechos === 'Sí') return true
+  if (data.analiza_derechos === 'No') return false
+  return ['derechos_vulnerados', 'derechos_amenazados', 'derechos_garantizados'].some((k) => asString(data[k]).trim())
 }
 
 /** Anexo con la evidencia fotográfica (`data._fotos`: [{ descripcion, src }]), dos fotos por fila. */

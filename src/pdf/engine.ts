@@ -44,6 +44,8 @@ export function sanitize(text: string): string {
 export interface Fonts {
   regular: PDFFont
   bold: PDFFont
+  italic: PDFFont
+  boldItalic: PDFFont
 }
 
 export interface WrapOptions {
@@ -147,7 +149,9 @@ export class FlowDocument {
     const pdf = await PDFDocument.create()
     const regular = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-    const doc = new FlowDocument(pdf, { regular, bold })
+    const italic = await pdf.embedFont(StandardFonts.HelveticaOblique)
+    const boldItalic = await pdf.embedFont(StandardFonts.HelveticaBoldOblique)
+    const doc = new FlowDocument(pdf, { regular, bold, italic, boldItalic })
     doc.newPage()
     return doc
   }

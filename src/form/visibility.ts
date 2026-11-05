@@ -74,3 +74,15 @@ export function edadEn(fechaNacimiento: string, fechaReferencia: string): { anio
   if (meses < 0) return null
   return { anios: Math.floor(meses / 12), meses: meses % 12 }
 }
+
+/**
+ * Ajusta datos de informes creados antes de que existieran los campos opcionales:
+ * si la sección 7 tiene contenido pero no se respondió la pregunta, se marca "Sí"
+ * para que no se oculte (ni se borre) al editar.
+ */
+export function normalizeData(data: FormData): FormData {
+  if (!data.analiza_derechos && ['derechos_vulnerados', 'derechos_amenazados', 'derechos_garantizados'].some((k) => typeof data[k] === 'string' && (data[k] as string).trim())) {
+    return { ...data, analiza_derechos: 'Sí' }
+  }
+  return data
+}

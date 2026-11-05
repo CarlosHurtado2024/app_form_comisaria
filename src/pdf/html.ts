@@ -9,7 +9,9 @@
  */
 import { asList, asRows, asString, type FormData } from '../form/types'
 import type { Profile } from '../store/storage'
+import { richToHtml } from '../form/richtext'
 import { formatDate } from './engine'
+import { incluyeDerechos } from './generate'
 
 export interface HtmlAssets {
   /** Data URL del escudo */
@@ -22,8 +24,6 @@ export interface HtmlAssets {
 
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
-const nl = (s: string): string => esc(s).replace(/\n/g, '<br>')
 
 /** Divide un texto largo en trozos para que las filas puedan repartirse entre páginas. */
 function chunks(text: string, max = 1100): string[] {
@@ -63,17 +63,13 @@ export function buildPrintHtml(data: FormData, profile: Profile, assets: HtmlAss
   const c = (key: string, opt: string): string => cb(asList(data[key]).includes(opt))
   const line = (key: string, min: number, fmt: (s: string) => string = esc): string =>
     `<span class="line" style="min-width:${min}px">${fmt(v(key))}</span>`
-  const bullets = (key: string): string => {
-    const lines = v(key)
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-    return lines.length ? lines.map((l) => `&bull; ${esc(l)}`).join('<br>') : '&bull; '
-  }
+  /** Texto con formato (negrita, cursiva, subrayado, listas) */
+  const rich = (key: string): string => richToHtml(v(key))
+  const bullets = (key: string): string => (v(key).trim() ? richToHtml(v(key), { autoBullet: true }) : '&bull; ')
 
   /** Celda con texto largo repartido en filas; `label` opcional en la primera. */
   const longRows = (key: string, opts: { colspan: number; minH: number; label?: string; cls?: string; bullets?: boolean }): string => {
-    const parts = opts.bullets ? [bullets(key)] : chunks(v(key)).map(nl)
+    const parts = opts.bullets ? [bullets(key)] : chunks(v(key)).map((t) => richToHtml(t))
     if (parts.length === 0) parts.push('')
     return parts
       .map((p, i) => {
@@ -88,19 +84,19 @@ export function buildPrintHtml(data: FormData, profile: Profile, assets: HtmlAss
 
   const yesno = (key: string, noLabel = '¿Por qué?:', yesLabel = 'Descripción:'): string => {
     const val = v(key)
-    return `<div>${cb(val === 'No')}No <u class="b">${noLabel}</u> &nbsp;&nbsp; ${cb(val === 'Sí')}Si <u class="b">${yesLabel}</u></div><div class="txt" style="min-height:34px">${nl(v(`${key}_texto`))}</div>`
+    return `<div>${cb(val === 'No')}No <u class="b">${noLabel}</u> &nbsp;&nbsp; ${cb(val === 'Sí')}Si <u class="b">${yesLabel}</u></div><div class="txt" style="min-height:34px">${rich(`${key}_texto`)}</div>`
   }
 
   const colgroup = (widths: number[]): string => `<colgroup>${widths.map((w) => `<col style="width:${w}%">`).join('')}</colgroup>`
 
   // ---------- Tablas de convivientes y contactos ----------
   const conv = asRows(data.convivientes)
-  const convRows = Array.from({ length: Math.max(8, conv.length) }, (_, i) => {
+  const convRows = Array.from({ length: Math.max(1, conv.length) }, (_, i) => {
     const row = conv[i] ?? {}
     return `<tr><td class="c">${i + 1}</td><td>${esc(row.nombre ?? '')}&nbsp;</td><td>${esc(row.parentesco ?? '')}&nbsp;</td><td>${esc(row.no_pariente ?? '')}&nbsp;</td><td>${cb(row.sexo === 'Mujer')}Mujer &nbsp;${cb(row.sexo === 'Hombre')}Hombre</td><td>${esc(row.edad ?? '')}&nbsp;</td><td>${esc(row.ocupacion ?? '')}&nbsp;</td></tr>`
   }).join('')
   const cont = asRows(data.contactos)
-  const contRows = Array.from({ length: Math.max(4, cont.length) }, (_, i) => {
+  const contRows = Array.from({ length: Math.max(1, cont.length) }, (_, i) => {
     const row = cont[i] ?? {}
     return `<tr><td style="height:20px">${esc(row.nombre ?? '')}&nbsp;</td><td>${esc(row.rol ?? '')}&nbsp;</td><td>${esc(row.contacto ?? '')}&nbsp;</td></tr>`
   }).join('')
@@ -154,7 +150,7 @@ ${colgroup([25, 25, 25, 25])}
 <tr><td class="b">Sección:</td><td colspan="3" style="height:18px">${val('seccion')}&nbsp;</td></tr>
 <tr><td class="b">Tarjeta Profesional N°:</td><td colspan="3" style="height:18px">${val('tarjeta_profesional')}&nbsp;</td></tr>
 <tr><td class="b">Dirigido a:</td><td colspan="3" style="height:18px">${val('dirigido_a')}&nbsp;</td></tr>
-<tr><td class="b">Asunto:</td><td colspan="3" style="height:18px">${nl(v('asunto'))}&nbsp;</td></tr>
+<tr><td class="b">Asunto:</td><td colspan="3" style="height:18px">${rich('asunto')}&nbsp;</td></tr>
 <tr><td colspan="4" class="sec">2. DATOS DEL NIÑO, NIÑA O ADOLESCENTE</td></tr>
 <tr><td class="b" colspan="2">Nombre(s)</td><td class="b" colspan="2">Apellido(s)</td></tr>
 <tr><td colspan="2" style="height:22px">${val('nombres')}&nbsp;</td><td colspan="2">${val('apellidos')}&nbsp;</td></tr>
@@ -348,7 +344,7 @@ ${colgroup([50, 50])}
   <td>${yesno('entorno_comunitario')}</td>
   <td>${yesno('entorno_institucional')}</td>
 </tr>
-<tr><td colspan="2" class="b">A nivel de mesosistema (Caracterización de la familia del niño, niña o adolescente).</td></tr>
+<tr><td colspan="2" class="b">A nivel mesosistema / Manifestación de NNA o Acudiente.</td></tr>
 ${longRows('meso_caracterizacion', { colspan: 2, minH: 160 })}
 </table>
 
@@ -368,7 +364,7 @@ ${colgroup([25, 25, 25, 25])}
   <td class="b" colspan="2">Redes vinculares de apoyo</td>
   <td class="b" colspan="2">Eventos significativos y/o críticos.</td>
 </tr>
-<tr><td colspan="2"><div class="txt" style="min-height:60px">${nl(v('redes_vinculares'))}</div></td><td colspan="2"><div class="txt" style="min-height:60px">${nl(v('eventos_criticos'))}</div></td></tr>
+<tr><td colspan="2"><div class="txt" style="min-height:60px">${rich('redes_vinculares')}</div></td><td colspan="2"><div class="txt" style="min-height:60px">${rich('eventos_criticos')}</div></td></tr>
 <tr><td colspan="4" class="b">5.2. A nivel de exosistema.</td></tr>
 ${longRows('exo_descripcion', { colspan: 4, minH: 60 })}
 <tr>
@@ -376,10 +372,10 @@ ${longRows('exo_descripcion', { colspan: 4, minH: 60 })}
   <td class="b" colspan="2">Sectores, servicios e instancias del SNBF. (Oferta de servicios orientados a la protección integral)</td>
 </tr>
 <tr class="opt">
-  <td>${r('redes_comunitarias', 'No')}No<br>&nbsp;&nbsp;¿Por qué?<div class="txt" style="min-height:30px">${v('redes_comunitarias') === 'No' ? nl(v('redes_comunitarias_texto')) : ''}</div></td>
-  <td>${r('redes_comunitarias', 'Sí')}Si<br>&nbsp;&nbsp;<u class="b">Descripción:</u><div class="txt" style="min-height:30px">${v('redes_comunitarias') === 'Sí' ? nl(v('redes_comunitarias_texto')) : ''}</div></td>
-  <td>${r('snbf', 'No')}No<br>&nbsp;&nbsp;<u class="b">¿Por qué?:</u><div class="txt" style="min-height:30px">${v('snbf') === 'No' ? nl(v('snbf_texto')) : ''}</div></td>
-  <td>${r('snbf', 'Sí')}Si<br>&nbsp;&nbsp;Descripción:<div class="txt" style="min-height:30px">${v('snbf') === 'Sí' ? nl(v('snbf_texto')) : ''}</div></td>
+  <td>${r('redes_comunitarias', 'No')}No<br>&nbsp;&nbsp;¿Por qué?<div class="txt" style="min-height:30px">${v('redes_comunitarias') === 'No' ? rich('redes_comunitarias_texto') : ''}</div></td>
+  <td>${r('redes_comunitarias', 'Sí')}Si<br>&nbsp;&nbsp;<u class="b">Descripción:</u><div class="txt" style="min-height:30px">${v('redes_comunitarias') === 'Sí' ? rich('redes_comunitarias_texto') : ''}</div></td>
+  <td>${r('snbf', 'No')}No<br>&nbsp;&nbsp;<u class="b">¿Por qué?:</u><div class="txt" style="min-height:30px">${v('snbf') === 'No' ? rich('snbf_texto') : ''}</div></td>
+  <td>${r('snbf', 'Sí')}Si<br>&nbsp;&nbsp;Descripción:<div class="txt" style="min-height:30px">${v('snbf') === 'Sí' ? rich('snbf_texto') : ''}</div></td>
 </tr>
 <tr><td colspan="4" class="b">Aspectos socioeconómicos</td></tr>
 <tr><td colspan="4" class="b">Condiciones de la vivienda</td></tr>
@@ -397,10 +393,10 @@ ${colgroup([34, 33, 33])}
     ${r('vivienda_tipo', 'Casa')}Casa<br>${r('vivienda_tipo', 'Apartamento')}Apartamento<br>${r('vivienda_tipo', 'Cuarto(s) en inquilinato')}Cuarto (s) en inquilinato<br>${r('vivienda_tipo', 'Vivienda tradicional indígena')}Vivienda tradicional indígena<br>${r('vivienda_tipo', 'Vivienda tradicional étnica (Afrocolombiana, isleña, ROM)')}Vivienda tradicional étnica<br>&nbsp;&nbsp;&nbsp;(Afrocolombiana, isleña, ROM)<br>${r('vivienda_tipo', 'Otro')}Otro<br>&nbsp;&nbsp;¿Cual? ${line('vivienda_tipo_otro', 110)}<br>&nbsp;&nbsp;(Contenedor, carpa, embarcación, vagón, cueva, refugio natural, albergue temporal de emergencia).
   </td>
   <td>
-    ${r('vivienda_tenencia', 'Propia')}Propia<br>${r('vivienda_tenencia', 'Alquiler')}Alquiler<br>${r('vivienda_tenencia', 'Familiar')}Familiar<br>${r('vivienda_tenencia', 'De la comunidad')}De la comunidad<br>${r('vivienda_tenencia', 'Invasión')}Invasión<br>${r('vivienda_tenencia', 'Posesión')}Posesión<br>${r('vivienda_tenencia', 'Otro')}Otro<br>&nbsp;&nbsp;¿Cual? ${line('vivienda_tenencia_otro', 110)}<br><br><u class="b">Observaciones:</u><div class="txt">${nl(v('vivienda_tenencia_obs'))}</div>
+    ${r('vivienda_tenencia', 'Propia')}Propia<br>${r('vivienda_tenencia', 'Alquiler')}Alquiler<br>${r('vivienda_tenencia', 'Familiar')}Familiar<br>${r('vivienda_tenencia', 'De la comunidad')}De la comunidad<br>${r('vivienda_tenencia', 'Invasión')}Invasión<br>${r('vivienda_tenencia', 'Posesión')}Posesión<br>${r('vivienda_tenencia', 'Otro')}Otro<br>&nbsp;&nbsp;¿Cual? ${line('vivienda_tenencia_otro', 110)}<br><br><u class="b">Observaciones:</u><div class="txt">${rich('vivienda_tenencia_obs')}</div>
   </td>
   <td>
-    ${r('vivienda_ubicacion', 'Residencial')}Residencial<br>${r('vivienda_ubicacion', 'Comercial')}Comercial<br>${r('vivienda_ubicacion', 'Industrial')}Industrial<br>${r('vivienda_ubicacion', 'Otro')}Otro<br>&nbsp;&nbsp;¿Cual? ${line('vivienda_ubicacion_otro', 110)}<br><br><u class="b">Observaciones:</u><div class="txt">${nl(v('vivienda_ubicacion_obs'))}</div>
+    ${r('vivienda_ubicacion', 'Residencial')}Residencial<br>${r('vivienda_ubicacion', 'Comercial')}Comercial<br>${r('vivienda_ubicacion', 'Industrial')}Industrial<br>${r('vivienda_ubicacion', 'Otro')}Otro<br>&nbsp;&nbsp;¿Cual? ${line('vivienda_ubicacion_otro', 110)}<br><br><u class="b">Observaciones:</u><div class="txt">${rich('vivienda_ubicacion_obs')}</div>
   </td>
 </tr>
 <tr>
@@ -410,13 +406,13 @@ ${colgroup([34, 33, 33])}
 </tr>
 <tr class="opt">
   <td>
-    ${c('espacios', 'Baño(s)')}Baño (s)<br>${c('espacios', 'Cocina')}Cocina<br>${c('espacios', 'Dormitorios')}Dormitorios<br>${c('espacios', 'Otro(s)')}Otros(s)<br><br><u class="b">Observaciones:</u><div class="txt">${nl(v('espacios_obs'))}</div>
+    ${c('espacios', 'Baño(s)')}Baño (s)<br>${c('espacios', 'Cocina')}Cocina<br>${c('espacios', 'Dormitorios')}Dormitorios<br>${c('espacios', 'Otro(s)')}Otros(s)<br><br><u class="b">Observaciones:</u><div class="txt">${rich('espacios_obs')}</div>
   </td>
   <td>
-    ${r('paredes', 'Ladrillo a la vista')}Ladrillo a la vista.<br>${r('paredes', 'Bloque a la vista')}Bloque a la vista.<br>${r('paredes', 'Ladrillo o bloque revocado, pañetado o repellado')}Ladrillo o bloque revocado, pañetado o repellado.<br>${r('paredes', 'Piedra, madera pulida')}Piedra, madera pulida.<br>${r('paredes', 'Tapia pisada, adobe')}Tapia pisada, adobe.<br>${r('paredes', 'Bahareque revocado')}Bahareque revocado.<br>${r('paredes', 'Bahareque sin revocar')}Bahareque sin revocar.<br>${r('paredes', 'Madera burda, tabla, tablón')}Madera burda, tabla, tablón.<br>${r('paredes', 'Material prefabricado')}Material prefabricado.<br>${r('paredes', 'Guadua, caña, esterilla, otro vegetal')}Guadua, caña, esterilla, otro vegetal.<br>${r('paredes', 'Zinc, tela, lona, cartón, latas, desechos, plástico')}Zinc, tela, lona, cartón, latas, desechos, plástico.<br>${r('paredes', 'Sin paredes')}Sin paredes.<br><u class="b">Observaciones en cuanto a condiciones generales:</u><div class="txt">${nl(v('paredes_obs'))}</div>
+    ${r('paredes', 'Ladrillo a la vista')}Ladrillo a la vista.<br>${r('paredes', 'Bloque a la vista')}Bloque a la vista.<br>${r('paredes', 'Ladrillo o bloque revocado, pañetado o repellado')}Ladrillo o bloque revocado, pañetado o repellado.<br>${r('paredes', 'Piedra, madera pulida')}Piedra, madera pulida.<br>${r('paredes', 'Tapia pisada, adobe')}Tapia pisada, adobe.<br>${r('paredes', 'Bahareque revocado')}Bahareque revocado.<br>${r('paredes', 'Bahareque sin revocar')}Bahareque sin revocar.<br>${r('paredes', 'Madera burda, tabla, tablón')}Madera burda, tabla, tablón.<br>${r('paredes', 'Material prefabricado')}Material prefabricado.<br>${r('paredes', 'Guadua, caña, esterilla, otro vegetal')}Guadua, caña, esterilla, otro vegetal.<br>${r('paredes', 'Zinc, tela, lona, cartón, latas, desechos, plástico')}Zinc, tela, lona, cartón, latas, desechos, plástico.<br>${r('paredes', 'Sin paredes')}Sin paredes.<br><u class="b">Observaciones en cuanto a condiciones generales:</u><div class="txt">${rich('paredes_obs')}</div>
   </td>
   <td>
-    ${r('pisos', 'Mármol, parqué, madera pulida y lacada')}Mármol, parqué, madera pulida y lacada.<br>${r('pisos', 'Alfombra o tapete de pared a pared')}Alfombra o tapete de pared a pared.<br>${r('pisos', 'Baldosa, cerámica, vinilo, tableta, ladrillo, madera pulida sin lacar')}Baldosa, cerámica, vinilo, tableta, ladrillo, madera pulida sin lacar.<br>${r('pisos', 'Madera burda, tabla o tablón, otro vegetal')}Madera burda, tabla o tablón, otro vegetal.<br>${r('pisos', 'Cemento, gravilla')}Cemento, gravilla<br>${r('pisos', 'Tierra, arena')}Tierra, arena<br>${r('pisos', 'Otro')}Otro. Cuál: ${line('pisos_otro', 80)}<br><br><u class="b">Observaciones en cuanto a condiciones generales:</u><div class="txt">${nl(v('pisos_obs'))}</div>
+    ${r('pisos', 'Mármol, parqué, madera pulida y lacada')}Mármol, parqué, madera pulida y lacada.<br>${r('pisos', 'Alfombra o tapete de pared a pared')}Alfombra o tapete de pared a pared.<br>${r('pisos', 'Baldosa, cerámica, vinilo, tableta, ladrillo, madera pulida sin lacar')}Baldosa, cerámica, vinilo, tableta, ladrillo, madera pulida sin lacar.<br>${r('pisos', 'Madera burda, tabla o tablón, otro vegetal')}Madera burda, tabla o tablón, otro vegetal.<br>${r('pisos', 'Cemento, gravilla')}Cemento, gravilla<br>${r('pisos', 'Tierra, arena')}Tierra, arena<br>${r('pisos', 'Otro')}Otro. Cuál: ${line('pisos_otro', 80)}<br><br><u class="b">Observaciones en cuanto a condiciones generales:</u><div class="txt">${rich('pisos_obs')}</div>
   </td>
 </tr>
 <tr>
@@ -426,10 +422,10 @@ ${colgroup([34, 33, 33])}
 </tr>
 <tr class="opt">
   <td>
-    ${c('servicios', 'Acueducto')}Acueducto<br>${c('servicios', 'Alcantarillado')}Alcantarillado<br>${c('servicios', 'Electricidad')}Electricidad<br>${c('servicios', 'Gas')}Gas<br>${c('servicios', 'Manejo de basuras')}Manejo de basuras<br>${c('servicios', 'Internet')}Internet<br>${c('servicios', 'Tv por cable')}Tv por cable<br>${c('servicios', 'Otro(s)')}Otro(s)<br>¿Cuál(es)?: ${line('servicios_otro', 120)}<br>${cb(!!v('servicios_sin'))}En caso de no contar con alguno o ninguno de los servicios esenciales, describir cómo se resuelve la necesidad:<div class="txt">${nl(v('servicios_sin'))}</div>
+    ${c('servicios', 'Acueducto')}Acueducto<br>${c('servicios', 'Alcantarillado')}Alcantarillado<br>${c('servicios', 'Electricidad')}Electricidad<br>${c('servicios', 'Gas')}Gas<br>${c('servicios', 'Manejo de basuras')}Manejo de basuras<br>${c('servicios', 'Internet')}Internet<br>${c('servicios', 'Tv por cable')}Tv por cable<br>${c('servicios', 'Otro(s)')}Otro(s)<br>¿Cuál(es)?: ${line('servicios_otro', 120)}<br>${cb(!!v('servicios_sin'))}En caso de no contar con alguno o ninguno de los servicios esenciales, describir cómo se resuelve la necesidad:<div class="txt">${rich('servicios_sin')}</div>
   </td>
   <td>
-    ${r('entorno', 'Urbano')}Urbano<br>${r('entorno', 'Rural')}Rural<br>Equipamiento público:<br>${c('equipamiento', 'Alumbrado')}Alumbrado:<br>${c('equipamiento', 'Parques')}Parques:<br>${c('equipamiento', 'Escenarios deportivos, culturales y/o comunitarios')}Escenarios deportivos, culturales y/o comunitarios;<br>&nbsp;&nbsp;En caso afirmativo indique cuáles: <span class="muted">La catedral, parques, establecimientos comerciales etc.</span><div class="txt">${nl(v('equipamiento_cuales'))}</div>
+    ${r('entorno', 'Urbano')}Urbano<br>${r('entorno', 'Rural')}Rural<br>Equipamiento público:<br>${c('equipamiento', 'Alumbrado')}Alumbrado:<br>${c('equipamiento', 'Parques')}Parques:<br>${c('equipamiento', 'Escenarios deportivos, culturales y/o comunitarios')}Escenarios deportivos, culturales y/o comunitarios;<br>&nbsp;&nbsp;En caso afirmativo indique cuáles: <span class="muted">La catedral, parques, establecimientos comerciales etc.</span><div class="txt">${rich('equipamiento_cuales')}</div>
   </td>
   <td>
     ${r('estrato', '0. Ninguno')}0. Ninguno<br>${r('estrato', '1. Bajo - Bajo')}1. Bajo – Bajo<br>${r('estrato', '2. Bajo')}2. Bajo<br>${r('estrato', '3. Medio bajo')}3. Medio bajo<br>${r('estrato', '4. Medio')}4. Medio<br>${r('estrato', '5. Medio alto')}5. Medio alto<br>${r('estrato', '6. Alto')}6. Alto
@@ -451,7 +447,7 @@ ${colgroup([34, 33, 33])}
       <td style="padding:0">${c('ingresos_fuente', 'Rentas, intereses, dividendos')}Rentas, intereses, dividendos<br>${c('ingresos_fuente', 'Trabajo informal')}Trabajo informal.<br>${c('ingresos_fuente', 'Ejercicio del comercio')}Ejercicio del comercio.<br>${c('ingresos_fuente', 'Otros')}Otros<br>Cual(es): ${val('ingresos_fuente_otros')}</td>
     </tr></table>
   </td>
-  <td><div class="txt">${nl(v('ingresos_aportantes'))}</div></td>
+  <td><div class="txt">${rich('ingresos_aportantes')}</div></td>
 </tr>
 </table>
 
@@ -469,10 +465,14 @@ ${longRows('factores_riesgo', { colspan: 1, minH: 60 })}
 ${colgroup([100])}
 <tr><td class="sec">6. Concepto integrado de valoración sociofamiliar</td></tr>
 ${longRows('concepto', { colspan: 1, minH: 120 })}
-<tr><td class="sec">7. Análisis de derechos garantizados, amenazados y/o vulnerados desde la perspectiva social</td></tr>
+${
+  incluyeDerechos(data)
+    ? `<tr><td class="sec">7. Análisis de derechos garantizados, amenazados y/o vulnerados desde la perspectiva social</td></tr>
 <tr><td><div class="txt" style="min-height:56px"><span class="b">Derechos Vulnerados:</span><br><br>${bullets('derechos_vulnerados')}</div></td></tr>
 <tr><td><div class="txt" style="min-height:56px"><span class="b">Derechos Amenazados:</span><br><br>${bullets('derechos_amenazados')}</div></td></tr>
-<tr><td><div class="txt" style="min-height:56px"><span class="b">Derechos Garantizados:</span><br><br>${bullets('derechos_garantizados')}</div></td></tr>
+<tr><td><div class="txt" style="min-height:56px"><span class="b">Derechos Garantizados:</span><br><br>${bullets('derechos_garantizados')}</div></td></tr>`
+    : ''
+}
 <tr><td class="sec">8. Acciones sugeridas por niveles</td></tr>
 <tr><td><div class="txt" style="min-height:90px">${bullets('acciones')}</div></td></tr>
 </table>
@@ -519,7 +519,10 @@ ${colgroup([50, 50])}
   .opt { line-height: 1.4; }
   .small { font-size: 7.4pt; }
   .muted { color: #555; }
-  .txt { white-space: normal; line-height: 1.35; }
+  .txt { white-space: normal; line-height: 1.35; text-align: justify; }
+  .txt .rl { min-height: 1.35em; }
+  .txt .li { padding-left: 14px; text-indent: -14px; }
+  .txt .mk { display: inline-block; width: 14px; text-indent: 0; text-align: left; }
   tr.cont td { border-top: none; }
   tr.more td { border-bottom: none; }
   tr.cont.first td { border-top: 1px solid #000; }
@@ -547,8 +550,9 @@ ${colgroup([50, 50])}
   /* El contenido ocupa exactamente el espacio que deja el encabezado */
   .page .content { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   /* pie de página institucional en todas las hojas */
-  .page .ftr { flex: none; padding-top: 6px; }
-  .page .ftr img { display: block; width: 100%; height: auto; }
+  /* Alto fijo: la imagen (807x90) carga de forma asíncrona y la paginación no debe depender de ella */
+  .page .ftr { flex: none; height: 80px; padding-top: 6px; }
+  .page .ftr img { display: block; width: 100%; height: 80px; object-fit: contain; object-position: left bottom; }
   /* vista en pantalla */
   @media screen {
     #out { padding: 60px 8px 24px; }

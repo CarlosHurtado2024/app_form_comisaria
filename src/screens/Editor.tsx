@@ -8,7 +8,7 @@ import { toast } from '../components/Toast'
 import { sectionsDone } from '../form/progress'
 import { sections } from '../form/schema'
 import { asString, type FieldValue, type FormData } from '../form/types'
-import { edadEn, pruneHidden } from '../form/visibility'
+import { edadEn, normalizeData, pruneHidden } from '../form/visibility'
 import { navigate } from '../hooks/useHashRoute'
 import { canShareFiles, downloadPdf } from '../pdf/download'
 import { openPrintView } from '../pdf/print'
@@ -25,7 +25,10 @@ export function Editor({ id, sectionId }: Props) {
   const uid = perfil!.id
   const storage = useMemo(() => storageFor(uid), [uid])
   const sync = useSyncContext()
-  const [report, setReport] = useState<Report | undefined>(() => storage.getReport(id))
+  const [report, setReport] = useState<Report | undefined>(() => {
+    const r = storage.getReport(id)
+    return r ? { ...r, data: normalizeData(r.data) } : r
+  })
   const [saved, setSaved] = useState(true)
   const [busy, setBusy] = useState(false)
   const timer = useRef<number | undefined>(undefined)

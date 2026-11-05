@@ -274,7 +274,7 @@ export const sections: Section[] = [
           'En el entorno institucional (Instituciones que prestan algún servicio de acuerdo con necesidades específicas en salud, o atención en programas sociales)',
         ),
       ]),
-      heading('A nivel de mesosistema (Caracterización de la familia del niño, niña o adolescente).'),
+      heading('A nivel mesosistema / Manifestación de NNA o Acudiente.'),
       ta('meso_caracterizacion', '', 10),
       row([
         radio(
@@ -430,9 +430,11 @@ export const sections: Section[] = [
     title: '7. ANÁLISIS DE DERECHOS GARANTIZADOS, AMENAZADOS Y/O VULNERADOS DESDE LA PERSPECTIVA SOCIAL',
     short: 'Análisis de derechos',
     blocks: [
-      ta('derechos_vulnerados', 'Derechos Vulnerados', 4, { bullets: true, hint: 'Un derecho por línea.' }),
-      ta('derechos_amenazados', 'Derechos Amenazados', 4, { bullets: true, hint: 'Un derecho por línea.' }),
-      ta('derechos_garantizados', 'Derechos Garantizados', 4, { bullets: true, hint: 'Un derecho por línea.' }),
+      note('Esta sección es opcional. Si responde No, no aparece en el PDF.'),
+      yn('analiza_derechos', '¿Incluye el análisis de derechos en este informe?', '', ''),
+      cond(ta('derechos_vulnerados', 'Derechos Vulnerados', 4, { bullets: true, hint: 'Un derecho por línea.' }), { key: 'analiza_derechos', equals: 'Sí' }),
+      cond(ta('derechos_amenazados', 'Derechos Amenazados', 4, { bullets: true, hint: 'Un derecho por línea.' }), { key: 'analiza_derechos', equals: 'Sí' }),
+      cond(ta('derechos_garantizados', 'Derechos Garantizados', 4, { bullets: true, hint: 'Un derecho por línea.' }), { key: 'analiza_derechos', equals: 'Sí' }),
     ],
   },
   {

@@ -14,6 +14,7 @@ import {
 } from '../form/types'
 import { isVisible, matches, selectOptions } from '../form/visibility'
 import { EvidenceField } from './EvidenceField'
+import { RichTextArea } from './RichTextArea'
 import { useForm } from './FormContext'
 
 const CheckIcon = () => (
@@ -104,14 +105,7 @@ function TextAreaField({ block }: { block: Extract<Block, { type: 'textarea' }> 
   return (
     <div className="field">
       <Label id={id} text={block.label} hint={block.hint} />
-      <textarea
-        id={id}
-        className="textarea"
-        rows={Math.max(2, Math.min(block.rows ?? 4, 12))}
-        value={asString(data[block.key])}
-        onChange={(e) => set(block.key, e.target.value)}
-        aria-label={block.label || 'Texto'}
-      />
+      <RichTextArea id={id} rows={block.rows ?? 4} value={asString(data[block.key])} onChange={(v) => set(block.key, v)} ariaLabel={block.label || 'Texto'} />
     </div>
   )
 }
@@ -220,7 +214,7 @@ function YesNoField({ block }: { block: YesNoBlock }) {
       {textLabel && (
         <div className={`yn-text${value === 'No' ? ' yn-text--no' : ''}`}>
           <label htmlFor={id}>{textLabel}</label>
-          <textarea id={id} className="textarea" rows={3} value={asString(data[textKey])} onChange={(e) => set(textKey, e.target.value)} />
+          <RichTextArea id={id} rows={3} value={asString(data[textKey])} onChange={(v) => set(textKey, v)} ariaLabel={textLabel} />
         </div>
       )}
     </div>

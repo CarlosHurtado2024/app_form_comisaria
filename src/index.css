@@ -1307,3 +1307,51 @@ select.input {
 .foto figcaption .btn {
   align-self: flex-end;
 }
+
+/* ---------- Cuadro de texto con formato ---------- */
+.rt {
+  display: flex;
+  flex-direction: column;
+}
+.rt__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: var(--bg);
+}
+.rt__btn {
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 7px 10px;
+  min-width: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.rt__btn:hover {
+  border-color: var(--green-600);
+  color: var(--green-900);
+}
+.rt__btn:focus-visible {
+  outline: 2px solid var(--green-600);
+  outline-offset: 1px;
+}
+.rt__b {
+  font-weight: 800;
+}
+.rt__i {
+  font-style: italic;
+}
+.rt__u {
+  text-decoration: underline;
+}
+.rt__area {
+  border-radius: 0 0 10px 10px;
+}
