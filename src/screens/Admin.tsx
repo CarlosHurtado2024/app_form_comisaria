@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { TopBar } from '../components/TopBar'
+import { AppShell } from '../components/AppShell'
 import { toast } from '../components/Toast'
 import { navigate } from '../hooks/useHashRoute'
 import { adminApi } from '../lib/adminApi'
@@ -35,8 +35,7 @@ export function Admin({ tab = 'usuarios' }: { tab?: string }) {
   const activeTab: Tab = tab === 'informes' ? 'informes' : 'usuarios'
   return (
     <>
-      <TopBar title="Administración" subtitle={perfil?.nombre} onBack={() => navigate({ name: 'home' })} />
-      <main className="page">
+      <AppShell active="admin" title="Administración" subtitle={perfil?.nombre}>
         <div className="tabs" role="tablist">
           <button type="button" role="tab" aria-selected={activeTab === 'usuarios'} className={activeTab === 'usuarios' ? 'on' : ''} onClick={() => navigate({ name: 'admin' })}>
             Usuarios
@@ -46,7 +45,7 @@ export function Admin({ tab = 'usuarios' }: { tab?: string }) {
           </button>
         </div>
         {activeTab === 'usuarios' ? <Usuarios /> : <TodosLosInformes />}
-      </main>
+      </AppShell>
     </>
   )
 }

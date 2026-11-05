@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { SignaturePad } from '../components/SignaturePad'
-import { TopBar } from '../components/TopBar'
+import { AppShell } from '../components/AppShell'
 import { toast } from '../components/Toast'
 import { navigate } from '../hooks/useHashRoute'
 import { mensajeError, type PerfilRow } from '../lib/supabase'
@@ -38,8 +38,8 @@ export function Profile() {
 
   return (
     <>
-      <TopBar title="Mi perfil" subtitle={p.correo} onBack={() => navigate({ name: 'home' })} />
-      <main className="page page--narrow">
+      <AppShell active="profile" title="Mi perfil" subtitle={p.correo}>
+        <div className="page--narrow" style={{ margin: 0 }}>
         <div className="card">
           <div className="card__body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div className="profile-grid">
@@ -110,7 +110,8 @@ export function Profile() {
             </div>
           </div>
         </div>
-      </main>
+        </div>
+      </AppShell>
     </>
   )
 }

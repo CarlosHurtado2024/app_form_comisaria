@@ -19,7 +19,7 @@ export interface AuthApi {
   recargarPerfil: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthApi | null>(null)
+export const AuthContext = createContext<AuthApi | null>(null)
 
 const perfilKey = (uid: string) => `its.perfil.v1.${uid}`
 
