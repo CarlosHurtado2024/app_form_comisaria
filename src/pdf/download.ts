@@ -1,5 +1,6 @@
 import escudoUrl from '../assets/escudo.png'
 import pdetUrl from '../assets/pdet.png'
+import pieUrl from '../assets/pie.png'
 import { asString, type FormData } from '../form/types'
 import type { Profile } from '../store/storage'
 import { generatePdf, type PdfAssets } from './generate'
@@ -17,7 +18,7 @@ async function fetchBytes(url: string): Promise<Uint8Array | undefined> {
 }
 
 function loadAssets(): Promise<PdfAssets> {
-  assetsPromise ??= Promise.all([fetchBytes(escudoUrl), fetchBytes(pdetUrl)]).then(([escudo, pdet]) => ({ escudo, pdet }))
+  assetsPromise ??= Promise.all([fetchBytes(escudoUrl), fetchBytes(pdetUrl), fetchBytes(pieUrl)]).then(([escudo, pdet, pie]) => ({ escudo, pdet, pie }))
   return assetsPromise
 }
 

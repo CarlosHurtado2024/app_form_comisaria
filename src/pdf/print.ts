@@ -1,5 +1,6 @@
 import escudo from '../assets/escudo.png?inline'
 import pdet from '../assets/pdet.png?inline'
+import pie from '../assets/pie.png?inline'
 import type { FormData } from '../form/types'
 import type { Profile } from '../store/storage'
 import { buildPrintHtml } from './html'
@@ -10,7 +11,7 @@ import { buildPrintHtml } from './html'
  * Devuelve false si el navegador bloqueó la ventana emergente.
  */
 export function openPrintView(data: FormData, profile: Profile): boolean {
-  const html = buildPrintHtml(data, profile, { escudo, pdet })
+  const html = buildPrintHtml(data, profile, { escudo, pdet, pie })
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const win = window.open(url, '_blank')

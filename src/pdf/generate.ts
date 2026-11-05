@@ -8,6 +8,7 @@ import { FlowDocument, GREEN, INK, LINE_LABEL, LINE_VALUE, MUTED, PAD, SIZE_LABE
 export interface PdfAssets {
   escudo?: Uint8Array
   pdet?: Uint8Array
+  pie?: Uint8Array
 }
 
 export interface GenerateOptions {
@@ -66,6 +67,7 @@ export async function generatePdf({ data, profile, assets }: GenerateOptions): P
     ...HEADER_TEXT,
     escudo: assets?.escudo ? await doc.pdf.embedPng(assets.escudo) : undefined,
     pdet: assets?.pdet ? await doc.pdf.embedPng(assets.pdet) : undefined,
+    pie: assets?.pie ? await doc.pdf.embedPng(assets.pie) : undefined,
   })
 
   const nna = `${asString(data.nombres)} ${asString(data.apellidos)}`.trim()

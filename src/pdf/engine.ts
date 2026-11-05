@@ -5,6 +5,8 @@ export const PAGE_W = 612
 export const PAGE_H = 792
 export const MARGIN = 34
 export const HEADER_H = 60
+/** Alto reservado para el pie de página institucional (imagen 807x90 a ancho de contenido). */
+export const FOOTER_H = 62
 export const CONTENT_W = PAGE_W - 2 * MARGIN
 
 export const INK = rgb(0.1, 0.1, 0.1)
@@ -111,6 +113,8 @@ export function formatDate(iso: string): string {
 export interface HeaderInfo {
   escudo?: PDFImage
   pdet?: PDFImage
+  /** Pie de página institucional (se imprime en todas las páginas) */
+  pie?: PDFImage
   entidad: string
   nit: string
   titulo: string
@@ -132,7 +136,7 @@ export class FlowDocument {
   y = 0
   readonly left = MARGIN
   readonly width = CONTENT_W
-  readonly bottom = MARGIN
+  readonly bottom = MARGIN + FOOTER_H + 4
 
   private constructor(pdf: PDFDocument, fonts: Fonts) {
     this.pdf = pdf
@@ -281,6 +285,14 @@ export class FlowDocument {
       page.drawText(`Versión: ${info.version}`, { x: rx, y: top - 24, size: small, font: this.fonts.regular, color: INK })
       page.drawText(`Página ${i + 1} de ${total}`, { x: rx, y: top - 36, size: small, font: this.fonts.regular, color: INK })
       page.drawText(`Cód. ${info.codigo}`, { x: rx, y: top - 48, size: small, font: this.fonts.regular, color: INK })
+
+      // Pie de página institucional
+      if (info.pie) {
+        const s = Math.min(w / info.pie.width, FOOTER_H / info.pie.height)
+        const fw = info.pie.width * s
+        const fh = info.pie.height * s
+        page.drawImage(info.pie, { x: x + (w - fw) / 2, y: MARGIN - 6, width: fw, height: fh })
+      }
     })
   }
 }

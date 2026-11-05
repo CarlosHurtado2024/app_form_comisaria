@@ -9,6 +9,7 @@ import type { FormData } from '../form/types'
 const assets = {
   escudo: new Uint8Array(readFileSync(new URL('../assets/escudo.png', import.meta.url))),
   pdet: new Uint8Array(readFileSync(new URL('../assets/pdet.png', import.meta.url))),
+  pie: new Uint8Array(readFileSync(new URL('../assets/pie.png', import.meta.url))),
 }
 
 const sample: FormData = {

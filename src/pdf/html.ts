@@ -16,6 +16,8 @@ export interface HtmlAssets {
   escudo: string
   /** Data URL del logo PDET */
   pdet: string
+  /** Data URL del pie de página institucional */
+  pie: string
 }
 
 const esc = (s: string): string =>
@@ -121,6 +123,8 @@ export function buildPrintHtml(data: FormData, profile: Profile, assets: HtmlAss
   <td class="meta" style="width:16%">Fecha: junio de 2024<br>Versión: 11<br><span class="pn">Página 1 de 1</span><br>Cód.F-PM-096</td>
 </tr>
 </table>`
+
+  const footer = `<div class="ftr"><img src="${assets.pie}" alt=""></div>`
 
   const body = `
 <table>
@@ -522,6 +526,9 @@ ${colgroup([50, 50])}
   .page .hdr { flex: none; }
   /* El contenido ocupa exactamente el espacio que deja el encabezado */
   .page .content { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  /* pie de página institucional en todas las hojas */
+  .page .ftr { flex: none; padding-top: 6px; }
+  .page .ftr img { display: block; width: 100%; height: auto; }
   /* vista en pantalla */
   @media screen {
     #out { padding: 60px 8px 24px; }
@@ -549,11 +556,13 @@ ${colgroup([50, 50])}
 <div id="src">${body}</div>
 <div id="out"></div>
 <script id="hdr" type="text/template">${header}</script>
+<script id="ftr" type="text/template">${footer}</script>
 <script>
 function paginar() {
   var src = document.getElementById('src');
   var out = document.getElementById('out');
   var headerHtml = document.getElementById('hdr').innerHTML;
+  var footerHtml = document.getElementById('ftr').innerHTML;
   var pages = [];
   var content;
   function newPage() {
@@ -563,6 +572,7 @@ function paginar() {
     var c = document.createElement('div');
     c.className = 'content';
     p.appendChild(c);
+    p.insertAdjacentHTML('beforeend', footerHtml);
     out.appendChild(p);
     pages.push(p);
     content = c;
