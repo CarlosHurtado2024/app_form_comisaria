@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import ilustracion from '../assets/hero.webp'
-import { AppShell } from '../components/AppShell'
+import { AppShell, iniciales } from '../components/AppShell'
 import { confirmar } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { toast } from '../components/Toast'
@@ -14,12 +14,27 @@ import { canShareFiles, downloadPdf } from '../pdf/download'
 import { storageFor, type Report } from '../store/storage'
 import { useSyncContext } from '../store/SyncContext'
 
-function formatDateTime(iso: string): string {
+const fechaCorta = (iso: string): string => {
   try {
-    return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso))
+    return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short' }).format(new Date(iso))
   } catch {
     return iso
   }
+}
+
+/** Informes creados en cada uno de los últimos seis meses (para el gráfico de actividad). */
+function porMes(reports: Report[]): { clave: string; etiqueta: string; total: number }[] {
+  const ahora = new Date()
+  const meses = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(ahora.getFullYear(), ahora.getMonth() - (5 - i), 1)
+    return { clave: `${d.getFullYear()}-${d.getMonth()}`, etiqueta: new Intl.DateTimeFormat('es-CO', { month: 'short' }).format(d).replace('.', ''), total: 0 }
+  })
+  for (const r of reports) {
+    const d = new Date(r.createdAt)
+    const m = meses.find((x) => x.clave === `${d.getFullYear()}-${d.getMonth()}`)
+    if (m) m.total += 1
+  }
+  return meses
 }
 
 export function Home() {
@@ -98,126 +113,161 @@ export function Home() {
     ? reports.filter((r) => [r.codigo ?? '', asString(r.data.nombres), asString(r.data.apellidos), asString(r.data.doc_numero)].some((v) => v.toLowerCase().includes(q)))
     : reports
   const pendientes = reports.filter((r) => r.dirty).length
+  const completos = reports.filter((r) => progressPercent(r.data) >= 100).length
+  const meses = porMes(reports)
+  const maxMes = Math.max(1, ...meses.map((m) => m.total))
   const primerNombre = (perfil?.nombre ?? '').split(/\s+/)[0] || ''
 
   return (
-    <AppShell active="home" title="Inicio" subtitle="Comisaría de Familia · Morales, Cauca">
-        <section className="welcome" aria-label="Resumen">
-          <div className="welcome__text">
-            <h2>{primerNombre ? `Hola, ${primerNombre}` : 'Bienvenida'}</h2>
-            <p>Sus informes de valoración sociofamiliar, guardados en este dispositivo y sincronizados con el servidor.</p>
-            <ul className="welcome__facts">
-              <li>
-                <Icon name="file" size={15} />
-                {reports.length} {reports.length === 1 ? 'informe' : 'informes'}
-              </li>
-              <li className={pendientes ? 'is-warn' : ''}>
-                <Icon name="cloud" size={15} />
-                {pendientes ? `${pendientes} por subir` : 'Todo sincronizado'}
-              </li>
-              {sync.state.ultima && (
-                <li>
-                  <Icon name="check" size={15} />
-                  {new Intl.DateTimeFormat('es-CO', { timeStyle: 'short' }).format(sync.state.ultima)}
-                </li>
-              )}
-            </ul>
-            <div className="welcome__actions">
-              <button type="button" className="btn btn--gold" onClick={create}>
-                <Icon name="plus" size={18} />
-                Nuevo informe
+    <AppShell active="home" title={primerNombre ? `Hola, ${primerNombre}` : 'Inicio'} subtitle="Comisaría de Familia · Morales, Cauca">
+      {!profileReady && (
+        <div className="banner">
+          <div>
+            <strong>Complete su perfil profesional</strong>
+            Tarjeta profesional y firma se insertan automáticamente en cada informe.
+          </div>
+          <button type="button" className="btn btn--gold btn--sm" style={{ marginLeft: 'auto' }} onClick={() => navigate({ name: 'profile' })}>
+            Completar
+          </button>
+        </div>
+      )}
+      {sync.state.error && sync.state.online && (
+        <div className="banner banner--warn">
+          <div>
+            <strong>No se pudo sincronizar</strong>
+            {sync.state.error}. Los cambios siguen guardados en este dispositivo.
+          </div>
+        </div>
+      )}
+
+      <div className="home">
+        {/* Lista de informes */}
+        <section className="card panel home__recent" aria-labelledby="recent-title">
+          <div className="panel__head">
+            <h2 id="recent-title">Mis informes</h2>
+            <label className="search">
+              <Icon name="search" size={18} />
+              <input className="input" type="search" placeholder="Buscar por nombre, documento o código" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Buscar informes" />
+            </label>
+          </div>
+
+          {reports.length === 0 ? (
+            <div className="empty">
+              <h2>Aún no hay informes</h2>
+              <p>Cree el primero y diligéncielo por secciones. Se guarda en este dispositivo y se sincroniza con el servidor.</p>
+              <button type="button" className="btn btn--primary" onClick={create} style={{ marginTop: 14 }}>
+                Crear informe
               </button>
             </div>
-          </div>
-          <div className="welcome__art" aria-hidden="true">
-            <img src={ilustracion} alt="" />
-          </div>
+          ) : visibles.length === 0 ? (
+            <div className="empty">
+              <h2>Sin coincidencias</h2>
+              <p>Ningún informe coincide con «{filtro}».</p>
+            </div>
+          ) : (
+            <ul className="rlist">
+              {visibles.map((r) => {
+                const nombre = `${asString(r.data.nombres)} ${asString(r.data.apellidos)}`.trim()
+                const pct = progressPercent(r.data)
+                return (
+                  <li key={r.id} className="rrow">
+                    <button type="button" className="rrow__main" onClick={() => navigate({ name: 'editor', id: r.id })}>
+                      <span className="avatar avatar--soft" aria-hidden="true">
+                        {nombre ? iniciales(nombre) : <Icon name="file" size={18} />}
+                      </span>
+                      <span className="rrow__text">
+                        <span className="rrow__name">{nombre || 'Informe sin nombre'}</span>
+                        <span className="rrow__meta">
+                          <span className="rrow__code">{r.codigo ?? 'Código pendiente'}</span>
+                          {r.dirty && <span className="tag">Por subir</span>}
+                          <span>Elaborado {fechaCorta(asString(r.data.fecha_elaboracion) || r.createdAt)}</span>
+                        </span>
+                      </span>
+                      <span className="rrow__progress" aria-label={`Avance ${pct}%`}>
+                        <span className="progress">
+                          <span style={{ width: `${pct}%` }} />
+                        </span>
+                        <span className="rrow__pct">{pct}%</span>
+                      </span>
+                    </button>
+                    <div className="rrow__actions">
+                      <button type="button" className="iconbtn iconbtn--label" onClick={() => void pdf(r)} disabled={busy === r.id} title="Generar PDF" aria-label={`PDF de ${nombre || 'informe'}`}>
+                        PDF
+                      </button>
+                      <button type="button" className="iconbtn iconbtn--label" onClick={() => void word(r)} disabled={busy === r.id} title="Descargar Word" aria-label={`Word de ${nombre || 'informe'}`}>
+                        W
+                      </button>
+                      <button type="button" className="iconbtn" onClick={() => duplicate(r)} title="Duplicar" aria-label={`Duplicar ${nombre || 'informe'}`}>
+                        <Icon name="copy" size={18} />
+                      </button>
+                      <button type="button" className="iconbtn iconbtn--danger" onClick={() => void remove(r)} title="Eliminar" aria-label={`Eliminar ${nombre || 'informe'}`}>
+                        <Icon name="trash" size={18} />
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </section>
 
-        {!profileReady && (
-          <div className="banner">
+        {/* Columna lateral: resumen y tarjeta destacada */}
+        <section className="card panel home__stats" aria-labelledby="stats-title">
+          <h2 id="stats-title" className="panel__title">
+            Resumen
+          </h2>
+          <dl className="stats">
             <div>
-              <strong>Complete su perfil profesional</strong>
-              Tarjeta profesional y firma se insertan automáticamente en cada informe.
+              <dt>Informes</dt>
+              <dd>{reports.length}</dd>
             </div>
-            <button type="button" className="btn btn--gold btn--sm" style={{ marginLeft: 'auto' }} onClick={() => navigate({ name: 'profile' })}>
-              Completar
-            </button>
-          </div>
-        )}
-        {sync.state.error && sync.state.online && (
-          <div className="banner banner--warn">
             <div>
-              <strong>No se pudo sincronizar</strong>
-              {sync.state.error}. Los cambios siguen guardados en este dispositivo.
+              <dt>Completos</dt>
+              <dd>{completos}</dd>
             </div>
-          </div>
-        )}
+            <div className={pendientes ? 'is-warn' : ''}>
+              <dt>Por subir</dt>
+              <dd>{pendientes}</dd>
+            </div>
+            <div>
+              <dt>Última sincronización</dt>
+              <dd className="stats__small">{sync.state.ultima ? new Intl.DateTimeFormat('es-CO', { dateStyle: 'short', timeStyle: 'short' }).format(sync.state.ultima) : '—'}</dd>
+            </div>
+          </dl>
+        </section>
 
-        <div className="toolbar">
-          <h2>Mis informes</h2>
-          <label className="search">
-            <Icon name="search" size={18} />
-            <input className="input" type="search" placeholder="Buscar por nombre, documento o código" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Buscar informes" />
-          </label>
-        </div>
-
-        {reports.length === 0 ? (
-          <div className="card empty">
-            <h2>Aún no hay informes</h2>
-            <p>Cree el primero y diligéncielo por secciones. Se guarda en este dispositivo y se sincroniza con el servidor.</p>
-            <button type="button" className="btn btn--primary" onClick={create} style={{ marginTop: 14 }}>
+        <section className="promo home__promo" aria-labelledby="promo-title">
+          <div className="promo__text">
+            <h2 id="promo-title">
+              Nuevo informe de valoración <em>sociofamiliar</em>
+            </h2>
+            <p>Diligéncielo por secciones desde el celular o el computador, con fotos, firma y PDF o Word al final.</p>
+            <button type="button" className="btn btn--light" onClick={create}>
+              <Icon name="plus" size={18} />
               Crear informe
             </button>
           </div>
-        ) : visibles.length === 0 ? (
-          <div className="card empty">
-            <h2>Sin coincidencias</h2>
-            <p>Ningún informe coincide con «{filtro}».</p>
+          <img className="promo__art" src={ilustracion} alt="" aria-hidden="true" />
+        </section>
+
+        {/* Actividad */}
+        <section className="card panel home__activity" aria-labelledby="activity-title">
+          <div className="panel__head">
+            <h2 id="activity-title">Informes por mes</h2>
+            <span className="panel__hint">Últimos 6 meses</span>
           </div>
-        ) : (
-          <div className="report-list">
-            {visibles.map((r) => {
-              const nombre = `${asString(r.data.nombres)} ${asString(r.data.apellidos)}`.trim()
-              const pct = progressPercent(r.data)
-              return (
-                <article key={r.id} className="card report-card" onClick={() => navigate({ name: 'editor', id: r.id })}>
-                  <div className="report-card__code">
-                    <span>{r.codigo ?? 'Código pendiente'}</span>
-                    {r.dirty && <span className="tag">Por subir</span>}
-                  </div>
-                  <div className="report-card__title">{nombre || 'Informe sin nombre'}</div>
-                  <div className="report-card__meta">
-                    <span>Elaborado: {asString(r.data.fecha_elaboracion) || '—'}</span>
-                    <span>Editado: {formatDateTime(r.updatedAt)}</span>
-                  </div>
-                  <div className="report-card__done">
-                    <span>Avance del informe</span>
-                    <span>{pct}%</span>
-                  </div>
-                  <div className="progress" aria-label={`Avance ${pct}%`}>
-                    <span style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="report-card__actions" onClick={(e) => e.stopPropagation()}>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => pdf(r)} disabled={busy === r.id}>
-                      {busy === r.id ? 'Generando…' : 'PDF'}
-                    </button>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => word(r)} disabled={busy === r.id}>
-                      Word
-                    </button>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => duplicate(r)}>
-                      Duplicar
-                    </button>
-                    <button type="button" className="btn btn--danger btn--sm btn--icon" style={{ marginLeft: 'auto' }} onClick={() => void remove(r)} aria-label="Eliminar informe" title="Eliminar">
-                      <Icon name="trash" size={18} />
-                    </button>
-                  </div>
-                </article>
-              )
-            })}
+          <div className="bars" role="img" aria-label={meses.map((m) => `${m.etiqueta}: ${m.total}`).join(', ')}>
+            {meses.map((m, i) => (
+              <div className="bars__col" key={m.clave}>
+                <span className="bars__value">{m.total}</span>
+                <span className={`bars__bar${i === meses.length - 1 ? ' is-current' : ''}`} style={{ height: `${Math.max(6, (m.total / maxMes) * 100)}%` }} />
+                <span className="bars__label">{m.etiqueta}</span>
+              </div>
+            ))}
           </div>
-        )}
-        <p className="install-tip">Los informes se guardan en este dispositivo y se suben al servidor cuando hay conexión.</p>
+        </section>
+      </div>
+      <p className="install-tip">Los informes se guardan en este dispositivo y se suben al servidor cuando hay conexión.</p>
     </AppShell>
   )
 }

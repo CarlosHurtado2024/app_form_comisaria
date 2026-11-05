@@ -15,7 +15,7 @@ interface Props {
   children: ReactNode
 }
 
-const iniciales = (nombre: string): string =>
+export const iniciales = (nombre: string): string =>
   nombre
     .split(/\s+/)
     .filter(Boolean)
@@ -24,8 +24,8 @@ const iniciales = (nombre: string): string =>
     .join('') || '·'
 
 /**
- * Estructura común de las pantallas principales: barra lateral en escritorio,
- * barra superior y navegación inferior en el celular.
+ * Estructura común de las pantallas principales: riel lateral oscuro con iconos en
+ * escritorio, barra superior con el usuario, y navegación inferior en el celular.
  */
 export function AppShell({ active, title, subtitle, actions, children }: Props) {
   const { perfil, esAdmin, logout } = useAuth()
@@ -43,47 +43,31 @@ export function AppShell({ active, title, subtitle, actions, children }: Props) 
           : 'Sincronizado'
   const syncClass = `sync sync--${sync.state.sincronizando ? 'busy' : !sync.state.online ? 'off' : sync.state.pendientes > 0 || sync.state.error ? 'pending' : 'ok'}`
 
-  const items: { key: Props['active'] | 'new'; label: string; icon: IconName; route: Route; admin?: boolean }[] = [
+  const items: { key: Props['active']; label: string; icon: IconName; route: Route; admin?: boolean }[] = [
     { key: 'home', label: 'Inicio', icon: 'home', route: { name: 'home' } },
-    { key: 'profile', label: 'Mi perfil', icon: 'user', route: { name: 'profile' } },
-    { key: 'admin', label: 'Administración', icon: 'shield', route: { name: 'admin' }, admin: true },
+    { key: 'profile', label: 'Perfil', icon: 'user', route: { name: 'profile' } },
+    { key: 'admin', label: 'Admin', icon: 'shield', route: { name: 'admin' }, admin: true },
   ]
   const visibles = items.filter((i) => !i.admin || esAdmin)
 
   return (
     <div className="shell">
-      <aside className="shell__side">
-        <div className="shell__brand">
-          <img src={escudo} alt="" />
-          <div>
-            <strong>Informe TS</strong>
-            <span>Comisaría de Familia</span>
-          </div>
-        </div>
-        <button type="button" className="shell__user" onClick={() => navigate({ name: 'profile' })}>
-          <span className="avatar">{iniciales(nombre)}</span>
-          <span className="shell__user-text">
-            <strong>{nombre || 'Mi perfil'}</strong>
-            <span>{esAdmin ? 'Administrador' : perfil?.cargo || 'Profesional'}</span>
-          </span>
+      <aside className="rail" aria-label="Navegación principal">
+        <button type="button" className="rail__brand" onClick={() => navigate({ name: 'home' })} title="Informe TS · Comisaría de Familia">
+          <img src={escudo} alt="Informe TS" />
         </button>
-        <nav className="shell__nav" aria-label="Principal">
+        <nav className="rail__nav">
           {visibles.map((i) => (
-            <button type="button" key={i.key} className={`shell__link${active === i.key ? ' is-active' : ''}`} onClick={() => navigate(i.route)} aria-current={active === i.key ? 'page' : undefined}>
-              <Icon name={i.icon} />
-              {i.label}
+            <button type="button" key={i.key} className={`rail__link${active === i.key ? ' is-active' : ''}`} onClick={() => navigate(i.route)} aria-current={active === i.key ? 'page' : undefined} title={i.label}>
+              <Icon name={i.icon} size={22} />
+              <span>{i.label}</span>
             </button>
           ))}
         </nav>
-        <div className="shell__foot">
-          <button type="button" className={syncClass} onClick={() => void sync.run()} title="Sincronizar ahora">
-            {syncLabel}
-          </button>
-          <button type="button" className="shell__link" onClick={() => void logout()}>
-            <Icon name="logout" />
-            Cerrar sesión
-          </button>
-        </div>
+        <button type="button" className="rail__link rail__logout" onClick={() => void logout()} title="Cerrar sesión">
+          <Icon name="logout" size={22} />
+          <span>Salir</span>
+        </button>
       </aside>
 
       <div className="shell__main">
@@ -96,10 +80,17 @@ export function AppShell({ active, title, subtitle, actions, children }: Props) 
             {subtitle && <small>{subtitle}</small>}
           </div>
           <div className="shell__actions">
-            <button type="button" className={`${syncClass} shell__sync`} onClick={() => void sync.run()} title="Sincronizar ahora">
+            {actions}
+            <button type="button" className={syncClass} onClick={() => void sync.run()} title="Sincronizar ahora">
               {syncLabel}
             </button>
-            {actions}
+            <button type="button" className="userchip" onClick={() => navigate({ name: 'profile' })} title="Mi perfil">
+              <span className="userchip__text">
+                <strong>{nombre || 'Mi perfil'}</strong>
+                <span>{esAdmin ? 'Administrador' : perfil?.cargo || 'Profesional'}</span>
+              </span>
+              <span className="avatar">{iniciales(nombre)}</span>
+            </button>
           </div>
         </header>
         <main className="page shell__content">{children}</main>
@@ -109,7 +100,7 @@ export function AppShell({ active, title, subtitle, actions, children }: Props) 
         {visibles.map((i) => (
           <button type="button" key={i.key} className={active === i.key ? 'is-active' : ''} onClick={() => navigate(i.route)} aria-current={active === i.key ? 'page' : undefined}>
             <Icon name={i.icon} size={22} />
-            <span>{i.key === 'admin' ? 'Admin' : i.label}</span>
+            <span>{i.key === 'profile' ? 'Mi perfil' : i.label}</span>
           </button>
         ))}
         <button type="button" onClick={() => void logout()}>
