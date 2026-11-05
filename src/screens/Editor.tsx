@@ -4,6 +4,7 @@ import { BlockView } from '../components/BlockView'
 import { FormContext, type FormApi } from '../components/FormContext'
 import { ExportMenu } from '../components/ExportMenu'
 import { TopBar } from '../components/TopBar'
+import { FLUSH_EVENT } from '../components/UpdatePrompt'
 import { conFotosParaPdf } from '../evidencias/fotos'
 import { dialogo } from '../components/Dialog'
 import { toast } from '../components/Toast'
@@ -63,6 +64,19 @@ export function Editor({ id, sectionId }: Props) {
   )
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  // Antes de actualizar la aplicación se guarda lo que esté pendiente
+  useEffect(() => {
+    const onFlush = () => {
+      const r = reportRef.current
+      if (!r) return
+      window.clearTimeout(timer.current)
+      storage.saveReport(r)
+      setSaved(true)
+    }
+    window.addEventListener(FLUSH_EVENT, onFlush)
+    return () => window.removeEventListener(FLUSH_EVENT, onFlush)
+  }, [storage])
 
   // Al salir del editor por cualquier vía, un informe vacío que nunca se subió se descarta
   useEffect(

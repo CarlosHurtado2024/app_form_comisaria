@@ -2424,3 +2424,63 @@ select.input {
     animation: none;
   }
 }
+
+/* ---------- Aviso de nueva versión ---------- */
+.update {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(84px + var(--safe-bottom));
+  z-index: 45;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 12px;
+  align-items: start;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  animation: install-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.update__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--green-50);
+  color: var(--green);
+}
+.update__text {
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.update__text strong {
+  display: block;
+  color: var(--ink);
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+.update__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (min-width: 640px) {
+  .update {
+    left: auto;
+    right: 20px;
+    bottom: 20px;
+    width: 420px;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update {
+    animation: none;
+  }
+}

@@ -7,8 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // La versión nueva se aplica cuando el usuario acepta el aviso (UpdatePrompt)
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['icons/favicon.png', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'Informe Trabajo Social - Comisaría de Familia',
