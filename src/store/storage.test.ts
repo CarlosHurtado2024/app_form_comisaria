@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createStorage, DEFAULT_PROFILE, memoryStore } from './storage'
+import { DEFAULT_PROFILE, createStorage, defaultData, isEmptyReport, memoryStore } from './storage'
 
 const UID = 'usuario-1'
 
@@ -48,5 +48,17 @@ describe('storage', () => {
     const raw = s.listAllRaw().find((r) => r.id === copy!.id)
     expect(raw?.deletedAt).toBeTruthy()
     expect(raw?.dirty).toBe(true)
+  })
+})
+
+describe('isEmptyReport', () => {
+  it('considera vacío un informe recién creado y lleno uno con datos del NNA', () => {
+    const profile = { ...DEFAULT_PROFILE, nombre: 'Pro', tarjeta: '123' }
+    const base = defaultData(profile)
+    expect(isEmptyReport(base, profile)).toBe(true)
+    expect(isEmptyReport({ ...base, fecha_elaboracion: '2020-01-01', edad_anios: '3' }, profile)).toBe(true)
+    expect(isEmptyReport({ ...base, nombres: 'Ana' }, profile)).toBe(false)
+    expect(isEmptyReport({ ...base, convivientes: [{ nombre: 'x' }] }, profile)).toBe(false)
+    expect(isEmptyReport({ ...base, elaborado_por: 'Otra persona' }, profile)).toBe(false)
   })
 })

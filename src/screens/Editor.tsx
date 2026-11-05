@@ -5,6 +5,7 @@ import { FormContext, type FormApi } from '../components/FormContext'
 import { ExportMenu } from '../components/ExportMenu'
 import { TopBar } from '../components/TopBar'
 import { conFotosParaPdf } from '../evidencias/fotos'
+import { dialogo } from '../components/Dialog'
 import { toast } from '../components/Toast'
 import { sectionsDone } from '../form/progress'
 import { sections } from '../form/schema'
@@ -13,7 +14,7 @@ import { edadEn, normalizeData, pruneHidden } from '../form/visibility'
 import { navigate } from '../hooks/useHashRoute'
 import { downloadDocx } from '../docx/download'
 import { canShareFiles, downloadPdf } from '../pdf/download'
-import { storageFor, type Report } from '../store/storage'
+import { isEmptyReport, storageFor, type Report } from '../store/storage'
 import { useSyncContext } from '../store/SyncContext'
 
 interface Props {
@@ -33,6 +34,14 @@ export function Editor({ id, sectionId }: Props) {
   const [saved, setSaved] = useState(true)
   const [busy, setBusy] = useState(false)
   const timer = useRef<number | undefined>(undefined)
+  // Estado del informe al abrirlo, para poder "salir sin guardar"
+  const original = useRef<Report | undefined>(storage.getReport(id))
+  // El usuario decidió conservar un informe aunque esté vacío
+  const conservar = useRef(false)
+  const reportRef = useRef(report)
+  useEffect(() => {
+    reportRef.current = report
+  }, [report])
 
   const index = Math.max(
     0,
@@ -54,6 +63,17 @@ export function Editor({ id, sectionId }: Props) {
   )
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  // Al salir del editor por cualquier vía, un informe vacío que nunca se subió se descarta
+  useEffect(
+    () => () => {
+      const r = reportRef.current
+      if (!r || conservar.current) return
+      const actual = storage.getReport(r.id) ?? r
+      if (!actual.syncedAt && !actual.codigo && isEmptyReport(actual.data, profile)) storage.removeRaw(actual.id)
+    },
+    [storage, profile],
+  )
 
   // Si la sincronización trae el código del informe, reflejarlo sin perder cambios locales
   useEffect(
@@ -100,6 +120,65 @@ export function Editor({ id, sectionId }: Props) {
       setSaved(true)
       sync.schedule(500)
     }
+  }
+
+  /** Cierre del informe con confirmación: guardar, salir sin guardar o descartar si está vacío. */
+  const cerrar = async () => {
+    if (!report) return navigate({ name: 'home' })
+    const vacio = isEmptyReport(report.data, profile)
+    if (vacio) {
+      const r = await dialogo({
+        titulo: 'Este informe está vacío',
+        mensaje: 'Todavía no ha escrito nada en él. ¿Desea conservarlo o descartarlo?',
+        icono: 'file',
+        tono: 'warn',
+        cancelar: 'seguir',
+        acciones: [
+          { value: 'seguir', label: 'Seguir editando', kind: 'ghost' },
+          { value: 'descartar', label: 'Descartar y salir', kind: 'danger' },
+          { value: 'guardar', label: 'Guardar vacío', kind: 'primary' },
+        ],
+      })
+      if (r === 'seguir' || r === null) return
+      if (r === 'descartar') {
+        window.clearTimeout(timer.current)
+        conservar.current = true
+        storage.deleteReport(report.id)
+        sync.schedule(500)
+        toast('Informe descartado')
+        return navigate({ name: 'home' })
+      }
+      conservar.current = true
+      flush()
+      return navigate({ name: 'home' })
+    }
+    const cambios = !saved || JSON.stringify(original.current?.data ?? null) !== JSON.stringify(report.data)
+    if (!cambios) return navigate({ name: 'home' })
+    const r = await dialogo({
+      titulo: '¿Salir del informe?',
+      mensaje: 'Puede guardar los cambios o salir sin guardarlos.',
+      icono: 'file',
+      cancelar: 'seguir',
+      acciones: [
+        { value: 'seguir', label: 'Seguir editando', kind: 'ghost' },
+        { value: 'sin', label: 'Salir sin guardar', kind: 'danger' },
+        { value: 'guardar', label: 'Guardar y salir', kind: 'primary' },
+      ],
+    })
+    if (r === 'seguir' || r === null) return
+    window.clearTimeout(timer.current)
+    if (r === 'sin') {
+      const orig = original.current
+      if (orig && !isEmptyReport(orig.data, profile)) storage.saveReport(orig)
+      else if (orig && (orig.syncedAt || orig.codigo)) storage.saveReport(orig)
+      else storage.deleteReport(report.id)
+      conservar.current = true
+      sync.schedule(500)
+      return navigate({ name: 'home' })
+    }
+    conservar.current = true
+    flush()
+    navigate({ name: 'home' })
   }
 
   const go = (i: number) => {
@@ -169,10 +248,7 @@ export function Editor({ id, sectionId }: Props) {
       <TopBar
         title={nna || 'Nuevo informe'}
         subtitle={`${report.codigo ?? 'Código pendiente'} · Sección ${index + 1} de ${sections.length} · ${section.short}`}
-        onBack={() => {
-          flush()
-          navigate({ name: 'home' })
-        }}
+        onBack={() => void cerrar()}
         right={
           <>
             <span className="status" aria-live="polite">

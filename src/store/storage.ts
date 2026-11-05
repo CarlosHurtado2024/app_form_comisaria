@@ -72,6 +72,45 @@ function readJson<T>(store: KeyValueStore, key: string, fallback: T): T {
   }
 }
 
+/** Datos con los que nace un informe nuevo (prellenados desde el perfil). */
+export function defaultData(profile: Profile): FormData {
+  const hoy = todayIso()
+  return {
+    fecha_elaboracion: hoy,
+    elaborado_por: profile.nombre,
+    seccion: profile.seccion,
+    tarjeta_profesional: profile.tarjeta,
+    dirigido_a: profile.dirigidoA,
+    asunto: 'Informe de valoración sociofamiliar de verificación de derechos',
+    nac_pais: 'Colombia',
+    nac_departamento: 'Cauca',
+    lengua_cual: 'Español',
+    prof_nombre: profile.nombre,
+    prof_tarjeta: profile.tarjeta,
+    prof_fecha_elaboracion: hoy,
+  }
+}
+
+const tieneContenido = (v: unknown): boolean =>
+  typeof v === 'string' ? v.trim().length > 0 : Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null
+
+/**
+ * Un informe está vacío cuando no tiene nada escrito aparte de los datos prellenados
+ * (los valores por defecto, con cualquier fecha, no cuentan como contenido).
+ */
+export function isEmptyReport(data: FormData, profile: Profile): boolean {
+  const base = defaultData(profile)
+  const fechas = new Set(['fecha_elaboracion', 'prof_fecha_elaboracion'])
+  for (const [k, v] of Object.entries(data)) {
+    if (k.startsWith('_') || !tieneContenido(v)) continue
+    if (fechas.has(k)) continue
+    if (k in base && base[k] === v) continue
+    if (k === 'edad_anios' || k === 'edad_meses') continue
+    return false
+  }
+  return true
+}
+
 export function todayIso(): string {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -126,7 +165,6 @@ export function createStorage(uid: string, store: KeyValueStore = defaultStore()
 
   const createReport = (profile: Profile): Report => {
     const now = new Date().toISOString()
-    const hoy = todayIso()
     const report: Report = {
       id: newId(),
       codigo: null,
@@ -134,20 +172,7 @@ export function createStorage(uid: string, store: KeyValueStore = defaultStore()
       createdAt: now,
       updatedAt: now,
       dirty: true,
-      data: {
-        fecha_elaboracion: hoy,
-        elaborado_por: profile.nombre,
-        seccion: profile.seccion,
-        tarjeta_profesional: profile.tarjeta,
-        dirigido_a: profile.dirigidoA,
-        asunto: 'Informe de valoración sociofamiliar de verificación de derechos',
-        nac_pais: 'Colombia',
-        nac_departamento: 'Cauca',
-        lengua_cual: 'Español',
-        prof_nombre: profile.nombre,
-        prof_tarjeta: profile.tarjeta,
-        prof_fecha_elaboracion: hoy,
-      },
+      data: defaultData(profile),
     }
     writeAll([report, ...readAll()])
     return report

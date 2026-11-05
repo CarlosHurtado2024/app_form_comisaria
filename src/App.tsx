@@ -1,4 +1,5 @@
 import { AuthProvider, useAuth } from './auth/AuthContext'
+import { DialogHost } from './components/Dialog'
 import { InstallPrompt } from './components/InstallPrompt'
 import { ToastHost } from './components/Toast'
 import { useHashRoute } from './hooks/useHashRoute'
@@ -45,6 +46,7 @@ export default function App() {
       <Shell />
       <InstallPrompt />
       <ToastHost />
+      <DialogHost />
     </AuthProvider>
   )
 }

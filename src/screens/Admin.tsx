@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { AppShell } from '../components/AppShell'
 import { Icon } from '../components/Icon'
+import { avisar, confirmar } from '../components/Dialog'
 import { toast } from '../components/Toast'
 import { navigate } from '../hooks/useHashRoute'
 import { adminApi } from '../lib/adminApi'
@@ -74,7 +75,14 @@ function Usuarios() {
 
   const toggleActivo = async (u: PerfilRow) => {
     const accion = u.activo ? 'desactivar' : 'reactivar'
-    if (!confirm(`¿${accion === 'desactivar' ? 'Desactivar' : 'Reactivar'} a ${u.nombre}?${u.activo ? ' No podrá ingresar, pero sus informes se conservan.' : ''}`)) return
+    const ok = await confirmar({
+      titulo: `¿${accion === 'desactivar' ? 'Desactivar' : 'Reactivar'} a ${u.nombre}?`,
+      mensaje: u.activo ? 'No podrá ingresar a la aplicación, pero sus informes se conservan.' : 'Podrá volver a ingresar con su contraseña actual.',
+      aceptar: u.activo ? 'Sí, desactivar' : 'Sí, reactivar',
+      peligro: u.activo,
+      icono: u.activo ? 'power' : 'refresh',
+    })
+    if (!ok) return
     setBusyId(u.id)
     try {
       await adminApi.activar(u.id, !u.activo)
@@ -89,12 +97,22 @@ function Usuarios() {
 
   const restablecer = async (u: PerfilRow) => {
     const clave = generarClave()
-    if (!confirm(`Se asignará a ${u.nombre} la contraseña temporal:\n\n${clave}\n\nDeberá cambiarla al ingresar. ¿Continuar?`)) return
+    const ok = await confirmar({
+      titulo: `Nueva contraseña para ${u.nombre}`,
+      mensaje: (
+        <>
+          Se asignará la contraseña temporal <code className="dlg__code">{clave}</code>. Deberá cambiarla al ingresar.
+        </>
+      ),
+      aceptar: 'Asignar',
+      icono: 'key',
+    })
+    if (!ok) return
     setBusyId(u.id)
     try {
       await adminApi.restablecerClave(u.id, clave)
       await navigator.clipboard?.writeText(clave).catch(() => undefined)
-      alert(`Contraseña temporal de ${u.nombre}:\n\n${clave}\n\n(Se copió al portapapeles. Entréguesela de forma segura.)`)
+      await avisar({ titulo: 'Contraseña temporal asignada', mensaje: <ClaveTemporal nombre={u.nombre} correo={u.correo} clave={clave} />, boton: 'Listo', icono: 'key' })
       await cargar()
     } catch (e) {
       toast(mensajeError(e), 'error')
@@ -257,7 +275,7 @@ function NuevoUsuarioForm({ onCreated }: { onCreated: () => Promise<void> }) {
     try {
       await adminApi.crearUsuario({ nombre: nombre.trim(), correo: correo.trim(), tarjeta_profesional: tarjeta.trim(), cargo: cargo.trim(), rol, clave })
       await navigator.clipboard?.writeText(clave).catch(() => undefined)
-      alert(`Usuario creado.\n\nCorreo: ${correo.trim()}\nContraseña temporal: ${clave}\n\n(Se copió al portapapeles. Entréguesela de forma segura; deberá cambiarla al ingresar.)`)
+      await avisar({ titulo: 'Usuario creado', mensaje: <ClaveTemporal nombre={nombre.trim()} correo={correo.trim()} clave={clave} />, boton: 'Listo', icono: 'user' })
       await onCreated()
     } catch (err) {
       setError(mensajeError(err))
@@ -374,7 +392,7 @@ function TodosLosInformes() {
   const reasignar = async (inf: InformeConAutor, nuevo: string) => {
     if (!nuevo || nuevo === inf.autor_id) return
     const destino = usuarios.find((u) => u.id === nuevo)
-    if (!confirm(`¿Reasignar el informe ${inf.codigo ?? ''} a ${destino?.nombre}?`)) return
+    if (!(await confirmar({ titulo: '¿Reasignar el informe?', mensaje: `El informe ${inf.codigo ?? ''} pasará a ${destino?.nombre}. Desde ahora solo esa persona podrá editarlo.`, aceptar: 'Sí, reasignar', icono: 'user' }))) return
     setBusyId(inf.id)
     const { error } = await supabase.rpc('reasignar_informe', { p_informe: inf.id, p_nuevo_autor: nuevo })
     setBusyId(null)
@@ -470,6 +488,30 @@ function TodosLosInformes() {
           ))}
         </div>
       )}
+    </>
+  )
+}
+
+/** Credenciales mostradas al crear un usuario o restablecer su contraseña. */
+function ClaveTemporal({ nombre, correo, clave }: { nombre: string; correo: string; clave: string }) {
+  return (
+    <>
+      <p>
+        Entréguele estos datos a <strong>{nombre}</strong> de forma segura. Deberá cambiar la contraseña al ingresar.
+      </p>
+      <dl className="dlg__creds">
+        <div>
+          <dt>Correo</dt>
+          <dd>{correo}</dd>
+        </div>
+        <div>
+          <dt>Contraseña temporal</dt>
+          <dd>
+            <code className="dlg__code">{clave}</code>
+          </dd>
+        </div>
+      </dl>
+      <p className="field__hint">Ya se copió la contraseña al portapapeles.</p>
     </>
   )
 }

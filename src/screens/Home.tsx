@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import ilustracion from '../assets/hero.webp'
 import { AppShell } from '../components/AppShell'
+import { confirmar } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { toast } from '../components/Toast'
 import { conFotosParaPdf, eliminarFotosDeInforme } from '../evidencias/fotos'
@@ -41,9 +42,20 @@ export function Home() {
     navigate({ name: 'editor', id: r.id })
   }
 
-  const remove = (r: Report) => {
+  const remove = async (r: Report) => {
     const nombre = `${asString(r.data.nombres)} ${asString(r.data.apellidos)}`.trim() || 'este informe'
-    if (!confirm(`¿Eliminar ${nombre}${r.codigo ? ` (${r.codigo})` : ''}? Esta acción no se puede deshacer.`)) return
+    const ok = await confirmar({
+      titulo: '¿Eliminar el informe?',
+      mensaje: (
+        <>
+          Se eliminará <strong>{nombre}</strong>
+          {r.codigo ? ` (${r.codigo})` : ''} con sus fotos. Esta acción no se puede deshacer.
+        </>
+      ),
+      aceptar: 'Sí, eliminar',
+      peligro: true,
+    })
+    if (!ok) return
     void eliminarFotosDeInforme(uid, r.id, r.data)
     storage.deleteReport(r.id)
     refresh()
@@ -196,7 +208,7 @@ export function Home() {
                     <button type="button" className="btn btn--ghost btn--sm" onClick={() => duplicate(r)}>
                       Duplicar
                     </button>
-                    <button type="button" className="btn btn--danger btn--sm btn--icon" style={{ marginLeft: 'auto' }} onClick={() => remove(r)} aria-label="Eliminar informe" title="Eliminar">
+                    <button type="button" className="btn btn--danger btn--sm btn--icon" style={{ marginLeft: 'auto' }} onClick={() => void remove(r)} aria-label="Eliminar informe" title="Eliminar">
                       <Icon name="trash" size={18} />
                     </button>
                   </div>

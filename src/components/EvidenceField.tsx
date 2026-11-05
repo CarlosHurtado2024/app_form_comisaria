@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { fotosDb } from '../evidencias/db'
 import { agregarFoto, eliminarFoto, evidenciasDe, MAX_FOTOS, obtenerBlob, type Evidencia } from '../evidencias/fotos'
 import { asString, type PhotosBlock } from '../form/types'
+import { confirmar } from './Dialog'
 import { useForm } from './FormContext'
 import { toast } from './Toast'
 
@@ -90,7 +91,7 @@ export function EvidenceField({ block }: { block: PhotosBlock }) {
   }
 
   const quitar = async (ev: Evidencia) => {
-    if (!confirm('¿Quitar esta fotografía del informe?')) return
+    if (!(await confirmar({ titulo: '¿Quitar esta fotografía?', mensaje: 'Se eliminará del informe y del servidor.', aceptar: 'Sí, quitar', peligro: true }))) return
     await eliminarFoto(uid, ev)
     set(
       block.key,
