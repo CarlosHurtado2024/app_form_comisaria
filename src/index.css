@@ -1355,4 +1355,22 @@ select.input {
 }
 .rt__area {
   border-radius: 0 0 10px 10px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.rt__area:focus {
+  border-color: var(--green-600);
+}
+.rt__area:empty::before {
+  content: '';
+}
+.rt__area ul,
+.rt__area ol {
+  margin: 0;
+  padding-left: 1.6em;
+}
+.rt__btn--on {
+  background: var(--green-100);
+  border-color: var(--green-600);
+  color: var(--green-900);
 }

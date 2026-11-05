@@ -66,7 +66,8 @@ export function parseInline(text: string): Run[] {
       // Cursiva solo si abre pegada a texto (evita tomar un * suelto o guiones bajos de nombres)
       const prev = text[i - 1] ?? ' '
       const next = text[i + 1] ?? ' '
-      const opens = !italic && /\S/.test(next) && !/[\wÀ-ÿ]/.test(prev)
+      // "*" abre cursiva si sigue texto; "_" además exige que no venga pegado a una palabra (nombres_con_guiones)
+      const opens = !italic && /\S/.test(next) && next !== ch && (ch === '*' || !/[\wÀ-ÿ]/.test(prev))
       const closes = italic && /\S/.test(prev)
       if (opens || closes) {
         flush()
