@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { AppShell } from '../components/AppShell'
+import { Icon } from '../components/Icon'
 import { toast } from '../components/Toast'
 import { navigate } from '../hooks/useHashRoute'
 import { adminApi } from '../lib/adminApi'
@@ -60,6 +61,7 @@ function Usuarios() {
   const [error, setError] = useState<string | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState('')
 
   const cargar = useCallback(async () => {
     const { data, error } = await supabase.from('perfiles').select('*').order('nombre')
@@ -101,16 +103,42 @@ function Usuarios() {
     }
   }
 
+  const q = filtro.trim().toLowerCase()
+  const lista = usuarios.filter((u) => !q || [u.nombre, u.correo, u.cargo, u.tarjeta_profesional ?? ''].some((v) => v.toLowerCase().includes(q)))
+  const activos = usuarios.filter((u) => u.activo).length
+
+  const verInformes = (u: PerfilRow) => {
+    try {
+      sessionStorage.setItem('its.admin.filtro', u.nombre)
+    } catch {
+      /* sin almacenamiento */
+    }
+    navigate({ name: 'admin', tab: 'informes' })
+  }
+
   return (
     <>
-      <div className="hero">
-        <div>
-          <h2>Profesionales</h2>
-          <p>Cree las cuentas de quienes elaboran informes. Cada cuenta recibe una contraseña temporal que debe cambiar al ingresar.</p>
+      <div className="adm-head">
+        <div className="adm-head__left">
+          <h2>Usuarios</h2>
+          <button type="button" className="btn btn--primary btn--sm" onClick={() => setMostrarForm((v) => !v)}>
+            {mostrarForm ? 'Cerrar formulario' : 'Nuevo usuario'}
+          </button>
+          <label className="search adm-head__search">
+            <Icon name="search" size={18} />
+            <input className="input" type="search" placeholder="Buscar por nombre, correo o tarjeta" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Buscar usuarios" />
+          </label>
         </div>
-        <button type="button" className="btn btn--primary" onClick={() => setMostrarForm((v) => !v)}>
-          {mostrarForm ? 'Cerrar formulario' : '+ Nuevo usuario'}
-        </button>
+        <dl className="adm-stats">
+          <div>
+            <dt>Total de usuarios</dt>
+            <dd>{usuarios.length}</dd>
+          </div>
+          <div>
+            <dt>Activos</dt>
+            <dd>{activos}</dd>
+          </div>
+        </dl>
       </div>
 
       {mostrarForm && (
@@ -130,44 +158,80 @@ function Usuarios() {
       {cargando ? (
         <p className="kbd-hint">Cargando usuarios…</p>
       ) : (
-        <div className="users">
-          {usuarios.map((u) => (
-            <article key={u.id} className={`card user${u.activo ? '' : ' user--off'}`}>
-              <div className="user__main">
-                <div className="user__avatar" aria-hidden="true">
-                  {u.nombre
-                    .split(' ')
-                    .slice(0, 2)
-                    .map((p) => p[0]?.toUpperCase())
-                    .join('')}
-                </div>
-                <div className="user__info">
-                  <div className="user__name">
-                    {u.nombre}
-                    {u.rol === 'admin' && <span className="tag tag--admin">Administrador</span>}
-                    {!u.activo && <span className="tag tag--off">Inactivo</span>}
-                    {u.debe_cambiar_clave && u.activo && <span className="tag">Clave temporal</span>}
-                  </div>
-                  <div className="user__meta">
-                    <span>{u.correo}</span>
-                    {u.tarjeta_profesional && <span>T.P. {u.tarjeta_profesional}</span>}
-                    <span>{u.cargo}</span>
-                    <span>Creado: {formatDate(u.creado_en)}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="user__actions">
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => restablecer(u)} disabled={busyId === u.id}>
-                  Nueva clave
-                </button>
-                {u.id !== yo?.id && (
-                  <button type="button" className={`btn btn--sm ${u.activo ? 'btn--danger' : 'btn--primary'}`} onClick={() => toggleActivo(u)} disabled={busyId === u.id}>
-                    {u.activo ? 'Desactivar' : 'Reactivar'}
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
+        <div className="card dt-wrap">
+          <table className="dt">
+            <thead>
+              <tr>
+                <th scope="col">Foto</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Correo</th>
+                <th scope="col">Tarjeta profesional</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Operaciones</th>
+                <th scope="col">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="dt__empty">
+                    {q ? `Ningún usuario coincide con «${filtro}».` : 'Aún no hay usuarios.'}
+                  </td>
+                </tr>
+              )}
+              {lista.map((u) => (
+                <tr key={u.id} className={u.activo ? '' : 'is-off'}>
+                  <td data-label="Foto">
+                    <span className="avatar avatar--sm" aria-hidden="true">
+                      {u.nombre
+                        .split(' ')
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((p) => p[0]?.toUpperCase())
+                        .join('')}
+                    </span>
+                  </td>
+                  <td data-label="Nombre" className="dt__name">
+                    <span className="dt__title">
+                      {u.nombre}
+                      {u.rol === 'admin' && <span className="tag tag--admin">Admin</span>}
+                      {u.debe_cambiar_clave && u.activo && <span className="tag">Clave temporal</span>}
+                    </span>
+                    <span className="dt__sub">{u.cargo}</span>
+                  </td>
+                  <td data-label="Correo" className="dt__muted">{u.correo}</td>
+                  <td data-label="Tarjeta profesional" className="dt__muted">{u.tarjeta_profesional || '—'}</td>
+                  <td data-label="Estado">
+                    <span className={`pill ${u.activo ? 'pill--ok' : 'pill--off'}`}>{u.activo ? 'Activo' : 'Inactivo'}</span>
+                  </td>
+                  <td data-label="Operaciones">
+                    <div className="dt__ops">
+                      <button type="button" className="iconbtn" onClick={() => restablecer(u)} disabled={busyId === u.id} title="Nueva contraseña temporal" aria-label={`Nueva contraseña para ${u.nombre}`}>
+                        <Icon name="key" size={18} />
+                      </button>
+                      {u.id !== yo?.id && (
+                        <button
+                          type="button"
+                          className={`iconbtn ${u.activo ? 'iconbtn--danger' : 'iconbtn--ok'}`}
+                          onClick={() => toggleActivo(u)}
+                          disabled={busyId === u.id}
+                          title={u.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
+                          aria-label={`${u.activo ? 'Desactivar' : 'Reactivar'} a ${u.nombre}`}
+                        >
+                          <Icon name={u.activo ? 'power' : 'refresh'} size={18} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td data-label="Acción">
+                    <button type="button" className="btn btn--primary btn--sm" onClick={() => verInformes(u)}>
+                      Informes
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </>
@@ -276,10 +340,20 @@ interface InformeConAutor extends InformeRow {
   perfiles: { nombre: string } | null
 }
 
+function filtroInicial(): string {
+  try {
+    const v = sessionStorage.getItem('its.admin.filtro') ?? ''
+    sessionStorage.removeItem('its.admin.filtro')
+    return v
+  } catch {
+    return ''
+  }
+}
+
 function TodosLosInformes() {
   const [informes, setInformes] = useState<InformeConAutor[]>([])
   const [usuarios, setUsuarios] = useState<PerfilRow[]>([])
-  const [filtro, setFiltro] = useState('')
+  const [filtro, setFiltro] = useState(filtroInicial)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)

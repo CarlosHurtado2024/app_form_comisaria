@@ -1,5 +1,5 @@
 /** Iconos de trazo uniforme (24x24, grosor 2) para la navegación y los botones. */
-export type IconName = 'home' | 'plus' | 'user' | 'shield' | 'logout' | 'file' | 'back' | 'chevron' | 'check' | 'search' | 'cloud' | 'camera' | 'menu' | 'trash' | 'copy'
+export type IconName = 'home' | 'plus' | 'user' | 'shield' | 'logout' | 'file' | 'back' | 'chevron' | 'check' | 'search' | 'cloud' | 'camera' | 'menu' | 'trash' | 'copy' | 'key' | 'power' | 'refresh' | 'x'
 
 const PATHS: Record<IconName, string> = {
   home: 'M3 11.5 12 4l9 7.5M5 10v10h5v-6h4v6h5V10',
@@ -17,6 +17,10 @@ const PATHS: Record<IconName, string> = {
   menu: 'M4 7h16M4 12h16M4 17h16',
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   copy: 'M9 9h10v11H9zM5 15V4h10',
+  key: 'M14 10a4 4 0 1 0-3.5 4L7 17.5V20h3l1-1v-2h2l1.5-1.5A4 4 0 0 0 14 10Z',
+  power: 'M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0',
+  refresh: 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5',
+  x: 'M6 6l12 12M18 6L6 18',
 }
 
 export function Icon({ name, size = 20, className }: { name: IconName; size?: number; className?: string }) {
