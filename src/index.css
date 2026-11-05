@@ -1374,3 +1374,25 @@ select.input {
   border-color: var(--green-600);
   color: var(--green-900);
 }
+
+/* En pantallas táctiles la barra va debajo del cuadro: el menú nativo de selección
+   (Cortar, Copiar…) aparece encima del texto y taparía los botones. */
+@media (hover: none) and (pointer: coarse) {
+  .rt {
+    flex-direction: column-reverse;
+  }
+  .rt__bar {
+    border: 1px solid var(--line-strong);
+    border-top: 0;
+    border-radius: 0 0 10px 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+  }
+  .rt__area {
+    border-radius: 10px 10px 0 0;
+  }
+  .rt__btn {
+    padding: 10px 12px;
+  }
+}

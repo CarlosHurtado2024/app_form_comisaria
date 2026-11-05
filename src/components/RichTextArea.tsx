@@ -46,6 +46,8 @@ export function RichTextArea({ id, value, onChange, rows = 4, ariaLabel }: Props
   const autoId = useId()
   const ref = useRef<HTMLDivElement>(null)
   const ultimo = useRef<string | null>(null)
+  // Última selección dentro del editor: en el celular, tocar un botón puede perderla
+  const rango = useRef<Range | null>(null)
   const [estado, setEstado] = useState<Estado>({ bold: false, italic: false, underline: false, list: null })
 
   // Cargar el contenido cuando el valor cambia desde fuera (no en cada tecla)
@@ -66,7 +68,9 @@ export function RichTextArea({ id, value, onChange, rows = 4, ariaLabel }: Props
 
   const actualizarEstado = useCallback(() => {
     const el = ref.current
-    if (!el || !el.contains(document.activeElement) && document.activeElement !== el) return
+    if (!el || (!el.contains(document.activeElement) && document.activeElement !== el)) return
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0 && el.contains(sel.getRangeAt(0).commonAncestorContainer)) rango.current = sel.getRangeAt(0).cloneRange()
     const ul = listaActual(el)
     setEstado({
       bold: document.queryCommandState('bold'),
@@ -84,7 +88,15 @@ export function RichTextArea({ id, value, onChange, rows = 4, ariaLabel }: Props
   const ejecutar = (cmd: Cmd) => {
     const el = ref.current
     if (!el) return
+    // Si el toque en el botón deshizo la selección (celular), se restaura la última conocida.
+    // Se comprueba antes de enfocar: focus() crea un cursor vacío dentro del editor.
+    const sel = window.getSelection()
+    const dentro = sel && sel.rangeCount > 0 && el.contains(sel.getRangeAt(0).commonAncestorContainer)
     el.focus()
+    if (!dentro && rango.current && sel) {
+      sel.removeAllRanges()
+      sel.addRange(rango.current)
+    }
     if (cmd === 'bold' || cmd === 'italic' || cmd === 'underline') {
       document.execCommand(cmd)
     } else if (cmd === 'number') {
@@ -135,6 +147,7 @@ export function RichTextArea({ id, value, onChange, rows = 4, ariaLabel }: Props
               title={b.title}
               aria-label={b.title}
               aria-pressed={on}
+              onPointerDown={(e) => e.preventDefault()}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => ejecutar(b.cmd)}
             >
