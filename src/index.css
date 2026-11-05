@@ -1579,80 +1579,6 @@ select.input {
   }
 }
 
-/* ---------- Menú Generar (PDF / Word) ---------- */
-.xm {
-  position: relative;
-}
-.xm__caret {
-  margin-left: 4px;
-}
-.xm__menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 30;
-  min-width: 300px;
-  max-width: min(92vw, 360px);
-  background: var(--surface);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-  padding: 6px;
-  text-align: left;
-}
-.xm__group {
-  padding: 8px 10px 4px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.xm__item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.xm__item:hover,
-.xm__item:focus-visible {
-  background: var(--green-50);
-  outline: none;
-}
-.xm__item:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-.xm__title {
-  font-weight: 650;
-  font-size: 0.92rem;
-}
-.xm__desc {
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.35;
-}
-@media (max-width: 639px) {
-  .xm__menu {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    top: auto;
-    bottom: 12px;
-    max-width: none;
-    min-width: 0;
-  }
-}
-
 /* ---------- Estructura principal: barra lateral / navegación inferior ---------- */
 .shell {
   min-height: 100dvh;
@@ -2026,5 +1952,163 @@ select.input {
   }
   .welcome__text p {
     font-size: 0.9rem;
+  }
+}
+
+/* ---------- Menú Generar (PDF / Word) ---------- */
+.xm__caret {
+  margin-left: 2px;
+}
+.xm__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: transparent;
+}
+.xm__menu {
+  position: fixed;
+  z-index: 60;
+  width: 320px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  text-align: left;
+}
+.xm__head {
+  padding: 8px 10px 10px;
+}
+.xm__head strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--green-900);
+}
+.xm__head span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.xm__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.xm__item:hover,
+.xm__item:focus-visible {
+  background: var(--green-50);
+  border-color: var(--green-100);
+  outline: none;
+}
+.xm__item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.xm__badge {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 14px;
+  background: var(--green);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 16px -10px rgba(18, 94, 66, 0.7);
+}
+.xm__badge--docx {
+  background: #2b5797;
+  font-size: 1.15rem;
+  box-shadow: 0 8px 16px -10px rgba(43, 87, 151, 0.7);
+}
+.xm__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.xm__title {
+  font-weight: 750;
+  font-size: 0.98rem;
+}
+.xm__desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.xm__go {
+  color: var(--muted);
+  transform: rotate(-90deg);
+  flex: none;
+}
+.xm__cancel {
+  display: none;
+}
+@media (max-width: 639px) {
+  .xm__backdrop {
+    background: rgba(11, 61, 42, 0.45);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  .xm__menu {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    border-radius: 24px 24px 0 0;
+    border-bottom: 0;
+    padding: 10px 14px calc(14px + var(--safe-bottom));
+    animation: xm-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .xm__menu::before {
+    content: '';
+    display: block;
+    width: 44px;
+    height: 5px;
+    margin: 2px auto 10px;
+    border-radius: 99px;
+    background: var(--line-strong);
+  }
+  .xm__item {
+    padding: 12px;
+    border-color: var(--line);
+    margin-bottom: 8px;
+  }
+  .xm__cancel {
+    display: inline-flex;
+    width: 100%;
+    margin-top: 2px;
+  }
+}
+@keyframes xm-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xm__menu {
+    animation: none;
   }
 }

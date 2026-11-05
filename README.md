@@ -12,15 +12,14 @@ incluyendo los datos del profesional que lo elabora y su firma.
 - **Diligenciamiento por secciones** (las 9 del formato) con autoguardado en el dispositivo.
 - **Perfil del profesional** reutilizable: nombre, tarjeta profesional, sección, cargo y **firma**
   (dibujada en pantalla o cargada como imagen). Se prellena en cada informe nuevo.
-- **Generación del PDF** en el navegador, sin servidor, de dos formas:
-  - **Generar PDF** (recomendado): abre el informe en HTML con el formato institucional completo
-    (misma plantilla que el generador con Chrome headless) y usa el motor de impresión del navegador
-    ("Guardar como PDF"). Resultado vectorial, con encabezado y "Página X de N" en cada hoja.
-  - **Descarga directa**: construye el PDF con `pdf-lib` sin pasar por el cuadro de impresión.
-    Útil para compartir desde el celular (WhatsApp, correo).
-- **Salida en Word (.docx)**: el profesional elige el formato (PDF o Word) en la sección final.
-  El documento Word se genera en el navegador con la librería `docx`, con el mismo contenido,
-  encabezado y pie en cada hoja, casillas, tablas, texto con formato, firma y anexo fotográfico.
+- **Generación del informe** en el navegador, sin servidor, desde el botón **Generar** (menú con dos
+  opciones: PDF y Word). En el celular se abre la hoja de compartir (guardar, WhatsApp, correo); en
+  PC se descarga el archivo. El PDF se construye con `pdf-lib` (encabezado y pie institucionales en
+  cada hoja, casillas, tablas, texto con formato, firma y anexo fotográfico). La vista de impresión
+  HTML (plantilla del generador con Chrome headless) sigue disponible para el administrador en
+  "Ver PDF".
+- **Salida en Word (.docx)**: generada en el navegador con la librería `docx`, con el mismo
+  contenido, encabezado y pie en cada hoja, casillas, tablas, texto con formato, firma y anexo.
 - **Varios informes** guardados, con duplicado y eliminación.
 - **Evidencia fotográfica opcional** (anexo al final): el profesional decide si anexa fotos
   (cámara o galería). Se reducen en el dispositivo (máx. 1600 px, JPEG), se guardan en IndexedDB

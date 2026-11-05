@@ -12,8 +12,7 @@ import { asString, type FieldValue, type FormData } from '../form/types'
 import { edadEn, normalizeData, pruneHidden } from '../form/visibility'
 import { navigate } from '../hooks/useHashRoute'
 import { downloadDocx } from '../docx/download'
-import { downloadPdf } from '../pdf/download'
-import { openPrintView } from '../pdf/print'
+import { canShareFiles, downloadPdf } from '../pdf/download'
 import { storageFor, type Report } from '../store/storage'
 import { useSyncContext } from '../store/SyncContext'
 
@@ -111,22 +110,15 @@ export function Editor({ id, sectionId }: Props) {
 
   const pdfData = (): Promise<FormData> => conFotosParaPdf(report!.id, { ...report!.data, _codigo: report!.codigo ?? '' })
 
-  /** Vista fiel al formato (HTML) para "Guardar como PDF" con el motor del navegador. */
-  const printPdf = () => {
-    if (!report) return
-    flush()
-    if (!openPrintView(pdfData(), profile)) {
-      toast('El navegador bloqueó la ventana. Se descargará el PDF directo.', 'error')
-      void exportPdf('download')
-    }
-  }
+  /** En el celular abre el menú de compartir (guardar, WhatsApp, correo); en PC descarga el archivo. */
+  const modoSalida = (): 'download' | 'share' => (canShareFiles() ? 'share' : 'download')
 
-  const exportPdf = async (mode: 'download' | 'share' | 'open') => {
+  const exportPdf = async () => {
     if (!report) return
     flush()
     setBusy(true)
     try {
-      const used = await downloadPdf(await pdfData(), profile, mode)
+      const used = await downloadPdf(await pdfData(), profile, modoSalida())
       toast(used === 'share' ? 'PDF compartido' : used === 'open' ? 'PDF abierto en una pestaña nueva' : 'PDF descargado')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
@@ -136,12 +128,12 @@ export function Editor({ id, sectionId }: Props) {
     }
   }
 
-  const exportDocx = async (mode: 'download' | 'share') => {
+  const exportDocx = async () => {
     if (!report) return
     flush()
     setBusy(true)
     try {
-      const used = await downloadDocx(await pdfData(), profile, mode)
+      const used = await downloadDocx(await pdfData(), profile, modoSalida())
       toast(used === 'share' ? 'Documento Word compartido' : 'Documento Word descargado')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
@@ -186,7 +178,7 @@ export function Editor({ id, sectionId }: Props) {
             <span className="status" aria-live="polite">
               {saved ? 'Guardado' : 'Guardando…'}
             </span>
-            <ExportMenu busy={busy} onPrintPdf={printPdf} onPdf={(m) => void exportPdf(m)} onDocx={(m) => void exportDocx(m)} />
+            <ExportMenu busy={busy} onPdf={() => void exportPdf()} onDocx={() => void exportDocx()} />
           </>
         }
       />
@@ -260,7 +252,7 @@ export function Editor({ id, sectionId }: Props) {
                 Siguiente →
               </button>
             ) : (
-              <ExportMenu variant="primary" label="Generar informe" busy={busy} onPrintPdf={printPdf} onPdf={(m) => void exportPdf(m)} onDocx={(m) => void exportDocx(m)} />
+              <ExportMenu variant="primary" label="Generar informe" busy={busy} onPdf={() => void exportPdf()} onDocx={() => void exportDocx()} />
             )}
           </div>
         </section>

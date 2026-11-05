@@ -9,8 +9,7 @@ import { progressPercent } from '../form/progress'
 import { asString } from '../form/types'
 import { navigate } from '../hooks/useHashRoute'
 import { downloadDocx } from '../docx/download'
-import { downloadPdf } from '../pdf/download'
-import { openPrintView } from '../pdf/print'
+import { canShareFiles, downloadPdf } from '../pdf/download'
 import { storageFor, type Report } from '../store/storage'
 import { useSyncContext } from '../store/SyncContext'
 
@@ -60,11 +59,9 @@ export function Home() {
   }
 
   const pdf = async (r: Report) => {
-    const data = conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' })
-    if (openPrintView(data, profile)) return
     setBusy(r.id)
     try {
-      await downloadPdf(await data, profile)
+      await downloadPdf(await conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' }), profile, canShareFiles() ? 'share' : 'download')
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo generar el PDF', 'error')
     } finally {
@@ -75,7 +72,7 @@ export function Home() {
   const word = async (r: Report) => {
     setBusy(r.id)
     try {
-      await downloadDocx(await conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' }), profile)
+      await downloadDocx(await conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' }), profile, canShareFiles() ? 'share' : 'download')
       toast('Documento Word descargado')
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo generar el documento Word', 'error')
