@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { BlockView } from '../components/BlockView'
 import { FormContext, type FormApi } from '../components/FormContext'
+import { ExportMenu } from '../components/ExportMenu'
 import { TopBar } from '../components/TopBar'
 import { conFotosParaPdf } from '../evidencias/fotos'
 import { toast } from '../components/Toast'
@@ -11,7 +12,7 @@ import { asString, type FieldValue, type FormData } from '../form/types'
 import { edadEn, normalizeData, pruneHidden } from '../form/visibility'
 import { navigate } from '../hooks/useHashRoute'
 import { downloadDocx } from '../docx/download'
-import { canShareFiles, downloadPdf } from '../pdf/download'
+import { downloadPdf } from '../pdf/download'
 import { openPrintView } from '../pdf/print'
 import { storageFor, type Report } from '../store/storage'
 import { useSyncContext } from '../store/SyncContext'
@@ -32,12 +33,6 @@ export function Editor({ id, sectionId }: Props) {
   })
   const [saved, setSaved] = useState(true)
   const [busy, setBusy] = useState(false)
-  // Formato de salida elegido (se recuerda en el dispositivo)
-  const [formato, setFormato] = useState<Formato>(() => leerFormato())
-  const elegirFormato = (f: Formato) => {
-    setFormato(f)
-    guardarFormato(f)
-  }
   const timer = useRef<number | undefined>(undefined)
 
   const index = Math.max(
@@ -191,9 +186,7 @@ export function Editor({ id, sectionId }: Props) {
             <span className="status" aria-live="polite">
               {saved ? 'Guardado' : 'Guardando…'}
             </span>
-            <button type="button" className="btn btn--gold" onClick={() => (formato === 'docx' ? void exportDocx('download') : printPdf())} disabled={busy}>
-              {formato === 'docx' ? 'Generar Word' : 'Generar PDF'}
-            </button>
+            <ExportMenu busy={busy} onPrintPdf={printPdf} onPdf={(m) => void exportPdf(m)} onDocx={(m) => void exportDocx(m)} />
           </>
         }
       />
@@ -255,51 +248,6 @@ export function Editor({ id, sectionId }: Props) {
                     {firmaOk ? 'Cambiar firma en el perfil' : 'Ir al perfil'}
                   </button>
                 </div>
-                <div className="field" style={{ paddingTop: 8, borderTop: '1px dashed var(--line)' }}>
-                  <span className="field__label">Formato de salida</span>
-                  <div className="seg" role="radiogroup" aria-label="Formato de salida">
-                    <button type="button" role="radio" aria-checked={formato === 'pdf'} className={formato === 'pdf' ? 'on' : ''} onClick={() => elegirFormato('pdf')}>
-                      PDF
-                    </button>
-                    <button type="button" role="radio" aria-checked={formato === 'docx'} className={formato === 'docx' ? 'on' : ''} onClick={() => elegirFormato('docx')}>
-                      Word (.docx)
-                    </button>
-                  </div>
-                </div>
-                {formato === 'pdf' ? (
-                  <>
-                    <div className="actions-bar" style={{ justifyContent: 'flex-start' }}>
-                      <button type="button" className="btn btn--primary" onClick={printPdf} disabled={busy}>
-                        Generar PDF
-                      </button>
-                      <button type="button" className="btn btn--ghost" onClick={() => exportPdf('download')} disabled={busy}>
-                        {busy ? 'Generando…' : 'Descarga directa'}
-                      </button>
-                      {canShareFiles() && (
-                        <button type="button" className="btn btn--ghost" onClick={() => exportPdf('share')} disabled={busy}>
-                          Compartir
-                        </button>
-                      )}
-                    </div>
-                    <div className="field__hint">
-                      "Generar PDF" abre el informe con el formato institucional completo; en el cuadro de impresión elija "Guardar como PDF". "Descarga directa" genera el archivo sin pasar por ese cuadro.
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="actions-bar" style={{ justifyContent: 'flex-start' }}>
-                      <button type="button" className="btn btn--primary" onClick={() => exportDocx('download')} disabled={busy}>
-                        {busy ? 'Generando…' : 'Descargar Word'}
-                      </button>
-                      {canShareFiles() && (
-                        <button type="button" className="btn btn--ghost" onClick={() => exportDocx('share')} disabled={busy}>
-                          Compartir
-                        </button>
-                      )}
-                    </div>
-                    <div className="field__hint">El documento Word (.docx) tiene el mismo contenido y encabezados del PDF y puede editarse en Word, LibreOffice o Google Docs.</div>
-                  </>
-                )}
               </div>
             )}
           </div>
@@ -312,9 +260,7 @@ export function Editor({ id, sectionId }: Props) {
                 Siguiente →
               </button>
             ) : (
-              <button type="button" className="btn btn--gold" onClick={() => (formato === 'docx' ? void exportDocx('download') : printPdf())} disabled={busy}>
-                {formato === 'docx' ? 'Generar Word' : 'Generar PDF'}
-              </button>
+              <ExportMenu variant="primary" label="Generar informe" busy={busy} onPrintPdf={printPdf} onPdf={(m) => void exportPdf(m)} onDocx={(m) => void exportDocx(m)} />
             )}
           </div>
         </section>
@@ -323,21 +269,3 @@ export function Editor({ id, sectionId }: Props) {
   )
 }
 
-type Formato = 'pdf' | 'docx'
-const FORMATO_KEY = 'its.formato'
-
-function leerFormato(): Formato {
-  try {
-    return localStorage.getItem(FORMATO_KEY) === 'docx' ? 'docx' : 'pdf'
-  } catch {
-    return 'pdf'
-  }
-}
-
-function guardarFormato(f: Formato): void {
-  try {
-    localStorage.setItem(FORMATO_KEY, f)
-  } catch {
-    /* sin almacenamiento */
-  }
-}

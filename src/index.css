@@ -1396,3 +1396,77 @@ select.input {
     padding: 10px 12px;
   }
 }
+
+/* ---------- Menú Generar (PDF / Word) ---------- */
+.xm {
+  position: relative;
+}
+.xm__caret {
+  margin-left: 4px;
+}
+.xm__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 300px;
+  max-width: min(92vw, 360px);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  padding: 6px;
+  text-align: left;
+}
+.xm__group {
+  padding: 8px 10px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.xm__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.xm__item:hover,
+.xm__item:focus-visible {
+  background: var(--green-50);
+  outline: none;
+}
+.xm__item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.xm__title {
+  font-weight: 650;
+  font-size: 0.92rem;
+}
+.xm__desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+@media (max-width: 639px) {
+  .xm__menu {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 12px;
+    max-width: none;
+    min-width: 0;
+  }
+}
