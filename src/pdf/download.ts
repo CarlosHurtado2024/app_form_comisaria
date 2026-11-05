@@ -3,6 +3,7 @@ import pdetUrl from '../assets/pdet.png'
 import pieUrl from '../assets/pie.png'
 import { asString, type FormData } from '../form/types'
 import type { Profile } from '../store/storage'
+import { entregarArchivo, puedeCompartirArchivos } from '../lib/entregar'
 import { generatePdf, type PdfAssets } from './generate'
 
 let assetsPromise: Promise<PdfAssets> | undefined
@@ -39,24 +40,24 @@ export async function buildPdfBlob(data: FormData, profile: Profile): Promise<Bl
   return new Blob([bytes as BlobPart], { type: 'application/pdf' })
 }
 
-/** Descarga el PDF (o lo comparte en móviles que lo permiten). Devuelve el modo usado. */
+/** Entrega el PDF: en el celular ofrece compartir o guardar; en PC lo descarga. Devuelve el modo usado. */
 export async function downloadPdf(data: FormData, profile: Profile, mode: 'download' | 'share' | 'open' = 'download'): Promise<string> {
   const blob = await buildPdfBlob(data, profile)
   const name = pdfFileName(data)
-  const file = new File([blob], name, { type: 'application/pdf' })
-
-  if (mode === 'share' && typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: name })
-    return 'share'
-  }
-  const url = URL.createObjectURL(blob)
   if (mode === 'open') {
+    const url = URL.createObjectURL(blob)
     const win = window.open(url, '_blank')
     if (win) {
       setTimeout(() => URL.revokeObjectURL(url), 60_000)
       return 'open'
     }
   }
+  if (mode === 'share') return entregarArchivo(blob, name, 'application/pdf', 'PDF listo')
+  return entregarArchivoDirecto(blob, name)
+}
+
+function entregarArchivoDirecto(blob: Blob, name: string): 'download' {
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = name
@@ -67,4 +68,4 @@ export async function downloadPdf(data: FormData, profile: Profile, mode: 'downl
   return 'download'
 }
 
-export const canShareFiles = (): boolean => typeof navigator !== 'undefined' && typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
+export const canShareFiles = puedeCompartirArchivos

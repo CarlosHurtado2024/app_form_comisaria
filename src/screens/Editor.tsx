@@ -212,7 +212,7 @@ export function Editor({ id, sectionId }: Props) {
     setBusy(true)
     try {
       const used = await downloadPdf(await pdfData(), profile, modoSalida())
-      toast(used === 'share' ? 'PDF compartido' : used === 'open' ? 'PDF abierto en una pestaña nueva' : 'PDF descargado')
+      if (used !== 'cancel') toast(used === 'share' ? 'PDF compartido' : used === 'open' ? 'PDF abierto en una pestaña nueva' : 'PDF descargado')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
       toast(e instanceof Error ? e.message : 'No se pudo generar el PDF', 'error')
@@ -227,7 +227,7 @@ export function Editor({ id, sectionId }: Props) {
     setBusy(true)
     try {
       const used = await downloadDocx(await pdfData(), profile, modoSalida())
-      toast(used === 'share' ? 'Documento Word compartido' : 'Documento Word descargado')
+      if (used !== 'cancel') toast(used === 'share' ? 'Documento Word compartido' : 'Documento Word descargado')
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
       toast(e instanceof Error ? e.message : 'No se pudo generar el PDF', 'error')

@@ -26,6 +26,8 @@ export function ExportMenu({ busy, onPdf, onDocx, variant = 'onbar', label = 'Ge
 
   const abrir = () => {
     if (open) return setOpen(false)
+    // Quitar el foco del campo activo (cierra el teclado) antes de calcular la posición
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
     const r = btn.current?.getBoundingClientRect()
     setPos(!esMovil() && r ? { top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) } : {})
     setOpen(true)
@@ -38,13 +40,7 @@ export function ExportMenu({ busy, onPdf, onDocx, variant = 'onbar', label = 'Ge
       if (e.key === 'Escape') cerrar()
     }
     document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', cerrar)
-    window.addEventListener('scroll', cerrar, true)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', cerrar)
-      window.removeEventListener('scroll', cerrar, true)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
   const pick = (fn: () => void) => {

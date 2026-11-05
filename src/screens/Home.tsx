@@ -99,8 +99,8 @@ export function Home() {
   const word = async (r: Report) => {
     setBusy(r.id)
     try {
-      await downloadDocx(await conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' }), profile, canShareFiles() ? 'share' : 'download')
-      toast('Documento Word descargado')
+      const used = await downloadDocx(await conFotosParaPdf(r.id, { ...r.data, _codigo: r.codigo ?? '' }), profile, canShareFiles() ? 'share' : 'download')
+      if (used === 'download') toast('Documento Word descargado')
     } catch (e) {
       toast(e instanceof Error ? e.message : 'No se pudo generar el documento Word', 'error')
     } finally {

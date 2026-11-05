@@ -4,6 +4,7 @@ import pieUrl from '../assets/pie.png'
 import type { FormData } from '../form/types'
 import { pdfFileName } from '../pdf/download'
 import type { Profile } from '../store/storage'
+import { entregarArchivo } from '../lib/entregar'
 import type { DocxAssets } from './generate'
 
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -33,15 +34,11 @@ export async function buildDocxBlob(data: FormData, profile: Profile): Promise<B
   return generateDocx({ data, profile, assets })
 }
 
-/** Descarga el Word (o lo comparte en móviles que lo permiten). Devuelve el modo usado. */
+/** Entrega el Word: en el celular ofrece compartir o guardar; en PC lo descarga. Devuelve el modo usado. */
 export async function downloadDocx(data: FormData, profile: Profile, mode: 'download' | 'share' = 'download'): Promise<string> {
   const blob = await buildDocxBlob(data, profile)
   const name = docxFileName(data)
-  const file = new File([blob], name, { type: DOCX_MIME })
-  if (mode === 'share' && typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: name })
-    return 'share'
-  }
+  if (mode === 'share') return entregarArchivo(blob, name, DOCX_MIME, 'Documento Word listo')
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
