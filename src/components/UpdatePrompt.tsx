@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import { registrarBuscadorDeActualizacion } from '../lib/version'
 import { Icon } from './Icon'
 
 /** Evento global: las pantallas con cambios pendientes los guardan de inmediato al recibirlo. */
@@ -22,6 +23,10 @@ export function UpdatePrompt() {
       if (!registration) return
       // Buscar versiones nuevas periódicamente y al volver a la app
       const buscar = () => void registration.update().catch(() => undefined)
+      registrarBuscadorDeActualizacion(async () => {
+        await registration.update()
+        return !!registration.waiting || !!registration.installing
+      })
       setInterval(buscar, CADA)
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') buscar()

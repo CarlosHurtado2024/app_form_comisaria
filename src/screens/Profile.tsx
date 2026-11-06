@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext'
 import { SignaturePad } from '../components/SignaturePad'
 import { AppShell } from '../components/AppShell'
 import { toast } from '../components/Toast'
+import { APP_VERSION, buscarActualizacion } from '../lib/version'
 import { navigate } from '../hooks/useHashRoute'
 import { mensajeError, type PerfilRow } from '../lib/supabase'
 import { CambiarClave } from './CambiarClave'
@@ -108,6 +109,25 @@ export function Profile() {
                 Cerrar sesión
               </button>
             </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card__body actions-bar" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong>Aplicación</strong>
+              <div className="field__hint">Versión {APP_VERSION}</div>
+            </div>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={async () => {
+                const hay = await buscarActualizacion()
+                toast(hay ? 'Hay una versión nueva: use el aviso para actualizar' : 'La aplicación está actualizada')
+              }}
+            >
+              Buscar actualización
+            </button>
           </div>
         </div>
         </div>

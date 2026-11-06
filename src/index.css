@@ -2525,3 +2525,11 @@ select.input {
     font-size: 1.3rem;
   }
 }
+
+.login__version {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+  opacity: 0.8;
+}

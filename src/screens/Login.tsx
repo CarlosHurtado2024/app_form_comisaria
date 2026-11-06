@@ -3,6 +3,7 @@ import escudo from '../assets/escudo.png'
 import ilustracion from '../assets/login.webp'
 import { useAuth } from '../auth/AuthContext'
 import { mensajeError, supabaseConfigured } from '../lib/supabase'
+import { APP_VERSION } from '../lib/version'
 
 export function Login() {
   const { login } = useAuth()
@@ -81,6 +82,7 @@ export function Login() {
             </button>
           </form>
           <p className="login__hint">Las cuentas las crea el administrador de la Comisaría. Si olvidó su contraseña, solicítele una nueva.</p>
+          <p className="login__version">Versión {APP_VERSION}</p>
         </div>
       </div>
     </main>

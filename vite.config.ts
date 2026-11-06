@@ -1,9 +1,22 @@
+import { execSync } from 'node:child_process'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 import { VitePWA } from 'vite-plugin-pwa'
 
+function versionApp(): string {
+  let commit = ''
+  try {
+    commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    /* sin git (p. ej. en el despliegue) */
+  }
+  const fecha = new Date().toISOString().slice(0, 16).replace('T', ' ')
+  return commit ? `${commit} · ${fecha}` : fecha
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(versionApp()) },
   plugins: [
     react(),
     VitePWA({
