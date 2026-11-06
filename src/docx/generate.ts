@@ -27,7 +27,22 @@ import {
 } from 'docx'
 import { parseRich } from '../form/richtext'
 import { FORM_SUBTITLE, FORM_TITLE, sections } from '../form/schema'
-import { asList, asRows, asString, type Block, type ChecksBlock, type FormData, type RadioBlock, type TableBlock, type YesNoBlock } from '../form/types'
+import {
+  asList,
+  asRows,
+  asString,
+  type Block,
+  type ChecksBlock,
+  type DateBlock,
+  type FormData,
+  type GroupBlock,
+  type RadioBlock,
+  type RowBlock,
+  type SelectBlock,
+  type TableBlock,
+  type TextBlock,
+  type YesNoBlock,
+} from '../form/types'
 import { isVisible } from '../form/visibility'
 import { HEADER_TEXT, incluyeDerechos } from '../pdf/generate'
 import { formatDate } from '../pdf/engine'
@@ -64,6 +79,8 @@ const BORDERS = { top: border, bottom: border, left: border, right: border }
 const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
 const NO_BORDERS = { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER }
 const CELL_MARGINS = { top: 40, bottom: 40, left: 70, right: 70 }
+const NO_MARGINS = { top: 0, bottom: 0, left: 0, right: 0 }
+const PAD = CELL_MARGINS.left + CELL_MARGINS.right
 
 const run = (text: string, opts: { bold?: boolean; italics?: boolean; underline?: boolean; size?: number; color?: string; font?: string } = {}): TextRun =>
   new TextRun({ text, bold: opts.bold, italics: opts.italics, underline: opts.underline ? {} : undefined, size: opts.size ?? SZ_VALUE, color: opts.color, font: opts.font ?? FONT })
@@ -92,6 +109,7 @@ interface CellOpts {
   shade?: string
   columnSpan?: number
   borders?: ITableCellOptions['borders']
+  margins?: ITableCellOptions['margins']
   verticalAlign?: ITableCellOptions['verticalAlign']
 }
 
@@ -102,9 +120,15 @@ const cell = (children: (Paragraph | Table)[], opts: CellOpts = {}): TableCell =
     shading: opts.shade ? { type: ShadingType.CLEAR, fill: opts.shade, color: 'auto' } : undefined,
     columnSpan: opts.columnSpan,
     borders: opts.borders ?? BORDERS,
-    margins: CELL_MARGINS,
+    margins: opts.margins ?? CELL_MARGINS,
     verticalAlign: opts.verticalAlign,
   })
+
+/** Párrafo casi invisible que cierra una celda cuyo último hijo es una tabla (Word lo exige). */
+const cierre = (): Paragraph => new Paragraph({ children: [run('', { size: 2 })], spacing: { before: 0, after: 0, line: 20, lineRule: 'exact' } })
+
+/** Un bloque que se dibuja como tabla ocupa toda la celda: sin margen ni borde propio, para no duplicar líneas. */
+const fillsCell = (block: Block): boolean => block.type === 'row' || block.type === 'group' || block.type === 'heading'
 
 /** Tabla de ancho fijo (en DXA) con columnas dadas. */
 const table = (rows: TableRow[], widths: number[], opts: { borders?: boolean } = {}): Table =>
@@ -135,9 +159,19 @@ class DocxRenderer {
     return asString(this.data[key])
   }
 
-  /** Contenido de un bloque: párrafos y/o tablas anidadas. `w` es el ancho disponible en DXA. */
-  block(block: Block, w: number): (Paragraph | Table)[] {
+  /** Etiqueta de un bloque, si la tiene (sirve para repartir filas en encabezado y contenido). */
+  private labelOf(block: Block): string {
+    return 'label' in block && typeof block.label === 'string' ? block.label : ''
+  }
+
+  /**
+   * Contenido de un bloque: párrafos y/o tablas. `w` es el ancho disponible en DXA.
+   * Con `sinLabel` se omite la etiqueta (ya va en la fila de encabezado); con `enGrupo`,
+   * una fila de campos simples se escribe en una sola línea («Años: 16  Meses: 9»).
+   */
+  block(block: Block, w: number, ctx: { sinLabel?: boolean; enGrupo?: boolean } = {}): (Paragraph | Table)[] {
     if (!isVisible(block, this.data)) return []
+    const label = !ctx.sinLabel && this.labelOf(block) ? [labelPara(this.labelOf(block))] : []
     switch (block.type) {
       case 'note':
       case 'fotos':
@@ -149,46 +183,79 @@ class DocxRenderer {
       case 'date': {
         const raw = this.value(block.key)
         const v = block.type === 'date' ? formatDate(raw) : raw
-        return [...(block.label ? [labelPara(block.label)] : []), para([run(v || ' ')])]
+        return [...label, para([run(v || ' ')])]
       }
       case 'textarea':
-        return [...(block.label ? [labelPara(block.label)] : []), ...richParas(this.value(block.key), { autoBullet: block.bullets })]
+        return [...label, ...richParas(this.value(block.key), { autoBullet: block.bullets })]
       case 'radio':
       case 'checks':
-        return this.options(block, w)
+        return [...label, ...this.options(block, w)]
       case 'yesno':
-        return this.yesno(block)
+        return [...label, ...this.yesno(block)]
       case 'table':
-        return this.dataTable(block, w)
-      case 'row': {
-        const items = block.items.filter((it) => isVisible(it, this.data))
-        if (!items.length) return []
-        const weights = block.widths && block.widths.length === block.items.length ? block.items.map((it, i) => (isVisible(it, this.data) ? block.widths![i] : 0)).filter(Boolean) : items.map(() => 1)
-        const widths = splitWidth(w, weights)
-        const cells = items.map((it, i) => cell(this.block(it, widths[i] - CELL_MARGINS.left - CELL_MARGINS.right), { width: widths[i] }))
-        return [table([new TableRow({ children: cells })], widths)]
-      }
-      case 'group': {
-        const inner = w - CELL_MARGINS.left - CELL_MARGINS.right
-        const body = block.items.flatMap((it) => this.block(it, inner))
-        return [
-          table(
-            [
-              new TableRow({ children: [cell([para([run(block.label, { bold: true, size: SZ_LABEL })])], { shade: GRAY_SOFT, width: w })] }),
-              new TableRow({ children: [cell(body, { width: w })] }),
-            ],
-            [w],
-          ),
-        ]
-      }
+        return [...label, ...this.dataTable(block, w)]
+      case 'row':
+        return this.row(block, w, !!ctx.enGrupo)
+      case 'group':
+        return [table([this.titleRow(block.label, w), new TableRow({ children: [cell(this.groupBody(block, w - PAD), { width: w })] })], [w])]
     }
+  }
+
+  /** Contenido de un grupo (sin su título). */
+  private groupBody(block: GroupBlock, w: number): (Paragraph | Table)[] {
+    return block.items.flatMap((it) => this.block(it, w, { enGrupo: true }))
+  }
+
+  /**
+   * Fila de bloques. Si todos tienen etiqueta, se dibuja como una cuadrícula de dos filas
+   * (etiquetas arriba, contenido abajo) con una sola línea entre celdas, como en el PDF.
+   */
+  private row(block: RowBlock, w: number, enGrupo: boolean): (Paragraph | Table)[] {
+    const items = block.items.filter((it) => isVisible(it, this.data))
+    if (!items.length) return []
+    const simple = (b: Block) => b.type === 'text' || b.type === 'select' || b.type === 'date'
+    if (enGrupo && items.every(simple)) {
+      const runs = items.flatMap((it, i) => {
+        const raw = this.value((it as TextBlock | SelectBlock | DateBlock).key)
+        const v = it.type === 'date' ? formatDate(raw) : raw
+        return [run(i ? '      ' : ''), run(`${this.labelOf(it)}: `, { bold: true, size: SZ_LABEL }), run(v || '—')]
+      })
+      return [para(runs)]
+    }
+    const weights = block.widths && block.widths.length === block.items.length ? block.items.map((it, i) => (isVisible(it, this.data) ? block.widths![i] : 0)).filter(Boolean) : items.map(() => 1)
+    const widths = splitWidth(w, weights)
+    if (items.every((it) => this.labelOf(it))) {
+      const header = new TableRow({ cantSplit: true, children: items.map((it, i) => cell([labelPara(this.labelOf(it))], { width: widths[i] })) })
+      const body = new TableRow({
+        children: items.map((it, i) => {
+          const inner = widths[i] - PAD
+          const content = it.type === 'group' ? this.groupBody(it, inner) : this.block(it, inner, { sinLabel: true })
+          return cell(content, { width: widths[i] })
+        }),
+      })
+      return [table([header, body], widths)]
+    }
+    return [table([new TableRow({ children: items.map((it, i) => this.boxCell(it, widths[i])) })], widths)]
+  }
+
+  private titleRow(title: string, w: number, shade?: string): TableRow {
+    return new TableRow({ children: [cell([para([run(title, { bold: true, size: SZ_LABEL })])], { shade, width: w })] })
+  }
+
+  /** Celda con el contenido de un bloque. Si el bloque es una tabla, esta llena la celda y pone las líneas. */
+  private boxCell(block: Block, w: number): TableCell {
+    if (fillsCell(block)) {
+      const content = this.block(block, w)
+      return cell(content.length ? [...content, cierre()] : [], { width: w, borders: NO_BORDERS, margins: NO_MARGINS })
+    }
+    return cell(this.block(block, w - PAD), { width: w })
   }
 
   private options(block: RadioBlock | ChecksBlock, w: number): (Paragraph | Table)[] {
     const selected = block.type === 'radio' ? [this.value(block.key)] : asList(this.data[block.key])
     const cols = Math.max(1, Math.min(block.columns ?? (block.options.length > 6 ? 2 : 1), block.options.length))
     const items = block.options.map((o) => para([check(selected.includes(o)), run(o)]))
-    const out: (Paragraph | Table)[] = block.label ? [labelPara(block.label)] : []
+    const out: (Paragraph | Table)[] = []
     if (cols === 1) out.push(...items)
     else {
       const perCol = Math.ceil(items.length / cols)
@@ -204,7 +271,6 @@ class DocxRenderer {
     const v = this.value(block.key)
     const text = this.value(`${block.key}_texto`)
     return [
-      labelPara(block.label),
       para([check(v === 'No'), run('No', { bold: true }), run(block.noLabel ? `  ${block.noLabel}` : '', { size: SZ_LABEL, color: '666666' }), run('      '), check(v === 'Sí'), run('Sí', { bold: true }), run(block.yesLabel ? `  ${block.yesLabel}` : '', { size: SZ_LABEL, color: '666666' })]),
       ...richParas(text),
     ]
@@ -231,21 +297,26 @@ class DocxRenderer {
         }),
       })
     })
-    const out: (Paragraph | Table)[] = block.label ? [labelPara(block.label)] : []
-    out.push(table([header, ...body], widths))
-    return out
+    return [table([header, ...body], widths)]
   }
 
-  /** Sección completa: tabla de una columna con título sombreado y un bloque por fila. */
-  section(title: string, blocks: Block[], extra: (Paragraph | Table)[] = []): Table {
-    const inner = CONTENT_W - CELL_MARGINS.left - CELL_MARGINS.right
-    const rows = [new TableRow({ children: [cell([para([run(title, { bold: true, size: SZ_LABEL })])], { shade: GRAY, width: CONTENT_W })] })]
+  /**
+   * Sección completa: título sombreado y luego cada bloque como tabla de ancho completo,
+   * una tras otra, de modo que entre bloques solo haya una línea.
+   */
+  section(title: string, blocks: Block[], extra: (Paragraph | Table)[] = []): Table[] {
+    const out: Table[] = [table([this.titleRow(title, CONTENT_W, GRAY)], [CONTENT_W])]
     for (const b of blocks) {
-      const content = this.block(b, inner)
-      if (content.length) rows.push(new TableRow({ children: [cell(content, { width: CONTENT_W })] }))
+      if (!isVisible(b, this.data)) continue
+      if (fillsCell(b)) {
+        for (const t of this.block(b, CONTENT_W)) if (t instanceof Table) out.push(t)
+        continue
+      }
+      const content = this.block(b, CONTENT_W - PAD)
+      if (content.length) out.push(table([new TableRow({ children: [cell(content, { width: CONTENT_W })] })], [CONTENT_W]))
     }
-    if (extra.length) rows.push(new TableRow({ children: [cell(extra, { width: CONTENT_W })] }))
-    return table(rows, [CONTENT_W])
+    if (extra.length) out.push(table([new TableRow({ children: [cell(extra, { width: CONTENT_W })] })], [CONTENT_W]))
+    return out
   }
 }
 
@@ -353,7 +424,7 @@ export async function generateDocx({ data, profile, assets }: GenerateDocxOption
     if (section.id === 'evidencia') continue
     if (section.id === 'derechos' && !incluyeDerechos(data)) continue
     const extra = section.id === 'profesional' ? signature(data, profile) : []
-    body.push(r.section(section.title, section.blocks, extra))
+    body.push(...r.section(section.title, section.blocks, extra))
     body.push(para([run('')], { spacing: { before: 0, after: 60 } }))
   }
   const anexo = photoAnnex(data)
