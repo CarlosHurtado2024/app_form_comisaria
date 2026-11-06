@@ -11,12 +11,11 @@ interface Props {
   label?: string
 }
 
-const esMovil = (): boolean => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
 
 /**
  * Botón "Generar" con dos opciones: PDF y Word.
- * El panel se monta en <body> (portal): así no lo recorta la barra superior y en el
- * celular se muestra como hoja inferior con fondo oscurecido.
+ * El panel se monta en <body> (portal) y se posiciona justo debajo del botón,
+ * en cualquier tamaño de pantalla.
  */
 export function ExportMenu({ busy, onPdf, onDocx, variant = 'onbar', label = 'Generar' }: Props) {
   const [open, setOpen] = useState(false)
@@ -28,8 +27,17 @@ export function ExportMenu({ busy, onPdf, onDocx, variant = 'onbar', label = 'Ge
     if (open) return setOpen(false)
     // Quitar el foco del campo activo (cierra el teclado) antes de calcular la posición
     ;(document.activeElement as HTMLElement | null)?.blur?.()
+    // Siempre justo debajo del botón, alineado a su borde derecho y dentro de la pantalla
     const r = btn.current?.getBoundingClientRect()
-    setPos(!esMovil() && r ? { top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) } : {})
+    if (r) {
+      const ancho = Math.min(320, window.innerWidth - 16)
+      const right = Math.max(8, Math.min(window.innerWidth - r.right, window.innerWidth - ancho - 8))
+      // Si no cabe debajo (botón al final de la pantalla), se abre hacia arriba
+      const ALTO = 240
+      const abajo = window.innerHeight - r.bottom - 8
+      const arriba = abajo < ALTO && r.top - 8 > abajo
+      setPos(arriba ? { bottom: window.innerHeight - r.top + 8, right, width: ancho } : { top: r.bottom + 8, right, width: ancho })
+    } else setPos({})
     setOpen(true)
   }
 
