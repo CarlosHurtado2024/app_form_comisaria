@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useId, useRef, useState, type ClipboardEvent } from 'react'
 import { editorHtmlToMarkup, markupToEditorHtml } from './richEditor'
+import { dialogo } from './Dialog'
+import { toast } from './Toast'
+import { plainText, richToHtml } from '../form/richtext'
+import { isOnline, mensajeError, supabaseConfigured } from '../lib/supabase'
+import { mejorarRedaccion } from '../lib/redaccionApi'
 
 interface Props {
   id?: string
@@ -49,6 +54,7 @@ export function RichTextArea({ id, value, onChange, rows = 4, ariaLabel }: Props
   // Última selección dentro del editor: en el celular, tocar un botón puede perderla
   const rango = useRef<Range | null>(null)
   const [estado, setEstado] = useState<Estado>({ bold: false, italic: false, underline: false, list: null })
+  const [mejorando, setMejorando] = useState(false)
 
   // Cargar el contenido cuando el valor cambia desde fuera (no en cada tecla)
   useEffect(() => {
@@ -127,6 +133,53 @@ export function RichTextArea({ id, value, onChange, rows = 4, ariaLabel }: Props
     actualizarEstado()
   }
 
+  /** Envía el texto a la IA, muestra la propuesta y la aplica solo si el profesional la acepta. */
+  const mejorar = async () => {
+    const original = value
+    if (!plainText(original).trim()) {
+      toast('Escriba algo en el cuadro antes de mejorar la redacción.')
+      return
+    }
+    if (!isOnline()) {
+      toast('Se necesita conexión a internet para mejorar la redacción.', 'error')
+      return
+    }
+    setMejorando(true)
+    let propuesta: string
+    try {
+      propuesta = await mejorarRedaccion(original)
+    } catch (e) {
+      toast(mensajeError(e), 'error')
+      return
+    } finally {
+      setMejorando(false)
+    }
+    const r = await dialogo({
+      titulo: 'Redacción sugerida',
+      icono: 'check',
+      cancelar: 'no',
+      mensaje: (
+        <>
+          <p className="rt__ia-nota">Revise el texto antes de aplicarlo: la IA puede equivocarse.</p>
+          <div className="rt__ia-prev" dangerouslySetInnerHTML={{ __html: richToHtml(propuesta) }} />
+        </>
+      ),
+      acciones: [
+        { value: 'no', label: 'Descartar', kind: 'ghost' },
+        { value: 'si', label: 'Aplicar', kind: 'primary' },
+      ],
+    })
+    // Si el texto cambió mientras se esperaba la respuesta, no se pisa lo nuevo
+    if (r !== 'si' || !ref.current) return
+    if (ultimo.current !== original) {
+      toast('El texto cambió mientras se mejoraba. Vuelva a intentarlo.', 'error')
+      return
+    }
+    ref.current.innerHTML = markupToEditorHtml(propuesta)
+    emitir()
+    toast('Redacción aplicada.')
+  }
+
   // Pegar solo texto plano (sin estilos de otras aplicaciones)
   const onPaste = (e: ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -155,6 +208,21 @@ export function RichTextArea({ id, value, onChange, rows = 4, ariaLabel }: Props
             </button>
           )
         })}
+        {supabaseConfigured && (
+          <button
+            type="button"
+            className="rt__btn rt__btn--ia"
+            title="Mejorar la redacción con IA"
+            aria-label="Mejorar la redacción con IA"
+            aria-busy={mejorando}
+            disabled={mejorando}
+            onPointerDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={mejorar}
+          >
+            {mejorando ? 'Mejorando…' : '✨ Mejorar redacción'}
+          </button>
+        )}
       </div>
       <div
         ref={ref}

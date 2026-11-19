@@ -81,7 +81,18 @@ guardan primero en el dispositivo (funciona sin conexión) y se sincronizan con 
    ```sql
    update public.perfiles set rol = 'admin' where correo = 'correo@del.admin';
    ```
-4. Copiar `.env.example` a `.env` con la URL del proyecto y la clave pública (anon / publishable),
+4. (Opcional) **Mejorar redacción con IA**: crear una clave gratuita en
+   [console.groq.com](https://console.groq.com/keys), guardarla como secreto y desplegar la función:
+   ```bash
+   supabase secrets set GROQ_API_KEY=su_clave
+   supabase functions deploy mejorar-redaccion
+   ```
+   Cada cuadro de texto muestra el botón **✨ Mejorar redacción**: el texto se envía a Groq a
+   través de la función (la clave nunca llega al navegador), se muestra la propuesta y solo se
+   aplica si el profesional pulsa **Aplicar**. Se conserva el formato (negrita, viñetas). Requiere
+   internet. El modelo se puede cambiar con el secreto `GROQ_MODEL`
+   (por defecto `llama-3.3-70b-versatile`).
+5. Copiar `.env.example` a `.env` con la URL del proyecto y la clave pública (anon / publishable),
    y configurar las mismas variables en Vercel.
 
 ### Roles
