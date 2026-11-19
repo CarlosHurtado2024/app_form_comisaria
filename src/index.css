@@ -2656,3 +2656,41 @@ select.input {
     animation: none;
   }
 }
+
+/* ---------- Pantalla de error ---------- */
+.crash {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.crash__card {
+  width: min(520px, 100%);
+  background: var(--surface, #fff);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(18, 94, 66, 0.12);
+  padding: 24px;
+}
+.crash__title {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+  color: var(--green, #125e42);
+}
+.crash__text {
+  margin: 0 0 12px;
+  color: var(--muted, #555);
+}
+.crash__detail {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f6f3ea;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.crash__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
